@@ -3,348 +3,538 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>원무팀 지옥도 - 관리자</title>
+<title>원무팀 지옥도</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
   :root{
-    --outline:#160606; --panel:#241412; --panel-text:#f3ddc4;
-    --ember:#ff7a2e; --ember-dim:#c1541c; --ash:#160d0b;
+    --outline:#160606;
+    --panel:#241412;
+    --panel-text:#f3ddc4;
+    --ember:#ff7a2e;
+    --ember-dim:#c1541c;
+    --ash:#160d0b;
+
+    --wonmu:#8a2a1f;   --wonmu-glow:#ff5a2e;
+    --billing:#5a6b78; --billing-glow:#c9d9e2;
+    --stats:#7a5a2f;   --stats-glow:#e0c07a;
+    --finance:#b23a1f; --finance-glow:#ffb26b;
   }
-  *{box-sizing:border-box;}
+  *{box-sizing:border-box; image-rendering:pixelated;}
+  html,body{ height:100%; }
   body{
-    margin:0; min-height:100vh;
-    font-family:'Noto Sans KR', sans-serif; color:var(--panel-text);
-    background:radial-gradient(ellipse at 50% 0%, #4a1108 0%, #1c0805 55%, #070302 100%);
-  }
-  .wrap{ max-width:720px; margin:0 auto; padding:40px 20px 70px; }
-  h1{ font-weight:900; font-size:1.4rem; text-align:center; color:var(--ember); margin-bottom:22px; }
-
-  /* PIN gate */
-  #gate{ text-align:center; margin-top:60px; }
-  #dots{ display:flex; justify-content:center; gap:14px; margin:24px 0; }
-  #dots span{
-    width:16px; height:16px; border-radius:50%;
-    border:2px solid var(--ember-dim); background:transparent;
-  }
-  #dots span.filled{ background:var(--ember); }
-  #gate p{ opacity:.75; font-size:0.85rem; }
-  #gateError{ color:#ff8a6a; font-size:0.82rem; min-height:1.4em; }
-
-  /* main admin ui */
-  #admin{ display:none; }
-  .tabs{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:22px; }
-  .tab{
-    padding:8px 14px; border:2px solid var(--ember-dim); background:var(--panel);
-    color:var(--panel-text); font-weight:700; font-size:0.82rem; cursor:pointer; border-radius:8px;
-  }
-  .tab.active{ background:var(--ember); color:#1c0805; border-color:var(--ember); }
-
-  .card{
-    background:var(--panel); border:2px solid var(--outline); border-radius:10px;
-    padding:16px; margin-bottom:18px;
-  }
-  .count{ font-weight:900; color:var(--ember); margin-bottom:12px; }
-  .row{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    padding:8px 0; border-bottom:1px solid rgba(255,255,255,.08);
-  }
-  .row:last-child{ border-bottom:none; }
-  .row .info{ font-size:0.85rem; }
-  .row .info .n{ font-weight:700; }
-  .row .info .u{ display:block; font-size:0.72rem; opacity:.6; word-break:break-all; }
-  .del{
-    background:#6b2110; color:#fff; border:none; border-radius:6px;
-    padding:6px 10px; font-size:0.75rem; cursor:pointer; flex-shrink:0;
+    margin:0;
+    font-family:'Noto Sans KR', sans-serif;
+    color:var(--panel-text);
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 15%, rgba(255,90,20,.20) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 35% at 85% 10%, rgba(255,60,20,.16) 0%, transparent 60%),
+      radial-gradient(ellipse at 50% 0%, #4a1108 0%, #1c0805 55%, #070302 100%);
+    min-height:100vh;
+    position:relative;
+    overflow-x:hidden;
   }
 
-  label{ display:block; font-size:0.8rem; font-weight:700; margin:10px 0 4px; }
-  input[type=text], textarea{
-    width:100%; padding:9px 10px; border:2px solid var(--ember-dim);
-    background:var(--ash); color:var(--panel-text); border-radius:6px; font-family:inherit; font-size:0.85rem;
+  /* floating embers */
+  .ember-particle{
+    position:fixed;
+    bottom:-10px;
+    width:3px; height:3px;
+    background:var(--ember);
+    border-radius:50%;
+    box-shadow:0 0 6px 1px rgba(255,122,46,.9);
+    opacity:0;
+    pointer-events:none;
+    animation:rise linear infinite;
+    z-index:0;
   }
-  .seg{ display:flex; gap:8px; margin-top:6px; }
-  .seg label{ display:flex; align-items:center; gap:6px; font-weight:400; margin:0; font-size:0.8rem; }
-  #addBtn{
-    margin-top:14px; width:100%; padding:11px; border:none; border-radius:8px;
-    background:var(--ember); color:#1c0805; font-weight:900; font-size:0.9rem; cursor:pointer;
+  @keyframes rise{
+    0%{ transform:translateY(0) translateX(0); opacity:0; }
+    10%{ opacity:.9; }
+    90%{ opacity:.5; }
+    100%{ transform:translateY(-100vh) translateX(var(--drift,20px)); opacity:0; }
   }
-  #addBtn:disabled{ opacity:.4; cursor:not-allowed; }
-  #formMsg{ font-size:0.8rem; margin-top:8px; min-height:1.2em; }
-  #formMsg.ok{ color:#8fd68a; }
-  #formMsg.err{ color:#ff8a6a; }
 
-  a.back{ display:block; text-align:center; margin-top:20px; color:#c9a98f; font-size:0.78rem; }
+  /* bottom flame silhouette strip */
+  #floorflames{
+    position:fixed; left:0; right:0; bottom:0; height:70px;
+    z-index:0; pointer-events:none; opacity:.5;
+  }
+
+  .scene{
+    max-width:1080px;
+    margin:0 auto;
+    padding:36px 22px 70px;
+    position:relative;
+    z-index:2;
+  }
+
+  header{ text-align:center; margin-bottom:26px; position:relative; z-index:2; }
+  header h1{
+    font-family:'Noto Sans KR', sans-serif;
+    font-weight:900;
+    font-size:1.7rem;
+    color:var(--ember);
+    text-shadow:3px 3px 0 var(--outline), 0 0 18px rgba(255,122,46,.55);
+    margin:0 0 14px;
+    line-height:1.5;
+  }
+  header p{
+    display:inline-block;
+    background:var(--panel);
+    border:3px solid var(--outline);
+    box-shadow:4px 4px 0 var(--outline), 0 0 16px rgba(255,90,20,.25);
+    padding:9px 16px;
+    font-size:0.82rem;
+    font-weight:700;
+    line-height:1.6;
+    max-width:480px;
+  }
+  #search{
+    display:block;
+    margin:18px auto 0;
+    width:min(300px, 88%);
+    padding:9px 14px;
+    border:3px solid var(--outline);
+    background:var(--ash);
+    color:var(--panel-text);
+    font-family:'Noto Sans KR', sans-serif;
+    font-weight:700;
+    font-size:0.85rem;
+    outline:none;
+  }
+  #search::placeholder{ color:#a68c7c; }
+
+  #center-ornament{
+    position:relative;
+    text-align:center;
+    font-size:2.4rem;
+    margin:6px 0 20px;
+    filter:drop-shadow(0 0 16px rgba(255,110,30,.7));
+    z-index:2;
+  }
+  #center-ornament span{
+    display:block;
+    font-weight:900;
+    font-size:0.72rem;
+    color:#caa085;
+    margin-top:6px;
+  }
+
+  main{
+    position:relative;
+    z-index:2;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:34px 30px;
+  }
+  @media (max-width:740px){ main{grid-template-columns:1fr;} }
+
+  .village{
+    position:relative;
+    background:var(--panel);
+    border:4px solid var(--outline);
+    box-shadow:6px 6px 0 var(--outline);
+  }
+  .village-glow{
+    position:absolute;
+    inset:0;
+    overflow:hidden;
+    z-index:0;
+    pointer-events:none;
+  }
+  .blob{
+    position:absolute;
+    width:220px; height:220px;
+    border-radius:50%;
+    filter:blur(42px);
+    opacity:.3;
+    animation:breathe 4.5s ease-in-out infinite;
+  }
+  @keyframes breathe{
+    0%,100%{ transform:scale(1); opacity:.24; }
+    50%{ transform:scale(1.18); opacity:.4; }
+  }
+  .theme-icon{
+    position:absolute;
+    bottom:12px; right:16px;
+    font-size:2.3rem;
+    opacity:.5;
+  }
+  .theme-icon.flicker{ animation:flicker 1.3s ease-in-out infinite; }
+  @keyframes flicker{
+    0%,100%{ transform:scale(1) rotate(-3deg); opacity:.45; }
+    50%{ transform:scale(1.15) rotate(4deg); opacity:.75; }
+  }
+  .theme-icon.sway{ animation:sway 2.1s ease-in-out infinite; transform-origin:top center; }
+  @keyframes sway{
+    0%,100%{ transform:rotate(-10deg); }
+    50%{ transform:rotate(10deg); }
+  }
+  .theme-icon.spin{ animation:spin 4.5s linear infinite; }
+  @keyframes spin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+  .theme-icon.simmer{ animation:simmer 1.7s ease-in-out infinite; }
+  @keyframes simmer{
+    0%,100%{ transform:translateY(0) scale(1); opacity:.5; }
+    50%{ transform:translateY(-7px) scale(1.08); opacity:.8; }
+  }
+  .village-content{ position:relative; z-index:1; }
+
+  .sign{
+    position:relative;
+    margin:-24px auto 0;
+    width:fit-content;
+    border:4px solid var(--outline);
+    box-shadow:3px 3px 0 var(--outline), 0 0 12px rgba(0,0,0,.5);
+    padding:9px 20px;
+    color:#fff8ef;
+    font-weight:900;
+    font-size:1.02rem;
+    letter-spacing:-0.01em;
+    line-height:1.5;
+    text-align:center;
+    text-shadow:2px 2px 0 rgba(0,0,0,.55);
+    background-image:repeating-linear-gradient(90deg, rgba(0,0,0,.15) 0 6px, transparent 6px 12px);
+  }
+  .sign::after{
+    content:"";
+    position:absolute;
+    left:50%; bottom:-14px;
+    transform:translateX(-50%);
+    width:6px; height:14px;
+    background:var(--outline);
+  }
+  .village-sub{
+    text-align:center;
+    padding:10px 10px 0;
+    font-size:0.74rem;
+    color:#dcc3ac;
+    font-weight:700;
+  }
+  .spikes{
+    height:14px;
+    margin-top:14px;
+    background-image:repeating-linear-gradient(90deg, #4a1b12 0 4px, transparent 4px 16px);
+    border-top:2px solid var(--outline);
+    border-bottom:2px solid var(--outline);
+  }
+
+  .village.wonmu .sign, .village.wonmu .spikes{ background-color:var(--wonmu); }
+  .village.billing .sign, .village.billing .spikes{ background-color:var(--billing); }
+  .village.stats .sign, .village.stats .spikes{ background-color:var(--stats); }
+  .village.finance .sign, .village.finance .spikes{ background-color:var(--finance); }
+
+  .npc-grid{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:16px;
+    padding:16px;
+  }
+  .npc{
+    position:relative;
+    width:84px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    text-decoration:none;
+    color:var(--panel-text);
+    cursor:pointer;
+  }
+  .patch{
+    position:relative;
+    width:64px; height:64px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #3a2018 0 55%, #1a0d09 100%);
+    border:3px solid var(--outline);
+    box-shadow:0 0 10px rgba(255,110,30,.35) inset;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    margin-bottom:6px;
+    transition:transform .15s ease;
+  }
+  .sprite-stack{
+    position:relative;
+    width:40px; height:45px;
+    margin-bottom:2px;
+    animation:bob 0.9s ease-in-out infinite;
+    animation-delay:var(--d, 0s);
+  }
+  .sprite{
+    position:absolute; top:0; left:0;
+    display:grid;
+    grid-template-columns:repeat(8, 5px);
+    grid-template-rows:repeat(9, 5px);
+  }
+  .sprite div{ width:5px; height:5px; }
+  .sprite.a{ animation:frameA 0.9s steps(1) infinite; animation-delay:var(--d, 0s); }
+  .sprite.b{ animation:frameB 0.9s steps(1) infinite; animation-delay:var(--d, 0s); }
+  @keyframes frameA{ 0%,49%{opacity:1;} 50%,100%{opacity:0;} }
+  @keyframes frameB{ 0%,49%{opacity:0;} 50%,100%{opacity:1;} }
+  @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-3px);} }
+  .sprite-stack svg{ width:100%; height:100%; display:block; }
+  @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-3px);} }
+
+  .item-badge{
+    position:absolute;
+    top:-6px; right:-2px;
+    font-size:0.78rem;
+    background:var(--panel);
+    border:2px solid var(--outline);
+    border-radius:50%;
+    width:20px; height:20px;
+    display:flex; align-items:center; justify-content:center;
+    z-index:2;
+  }
+  .npc .name{ font-size:0.68rem; font-weight:700; line-height:1.35; }
+  .npc .status{
+    font-weight:900;
+    font-size:0.56rem; color:var(--ember-dim); margin-top:3px;
+  }
+  .npc.pending .patch{ filter:grayscale(0.7); opacity:0.55; box-shadow:none; }
+  .npc.pending .sprite-stack{ animation:none; }
+  .npc.pending .sprite.a,.npc.pending .sprite.b{ animation:none; }
+  .npc.pending .sprite.b{ opacity:0; }
+
+  .tip{
+    position:absolute;
+    bottom:calc(100% + 4px);
+    left:50%;
+    transform:translateX(-50%);
+    width:190px;
+    background:#0d0403;
+    color:#f3ddc4;
+    border:1px solid var(--ember-dim);
+    font-size:0.7rem;
+    line-height:1.5;
+    padding:8px 10px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .12s ease;
+    z-index:5;
+    text-align:left;
+  }
+  .npc:hover .tip, .npc:focus-visible .tip{ opacity:1; }
+  .npc:hover .patch, .npc:focus-visible .patch{ transform:translateY(-3px); }
+
+  footer{
+    text-align:center;
+    color:#c9a98f;
+    font-size:0.76rem;
+    padding:26px 20px 0;
+    line-height:1.7;
+    position:relative; z-index:2;
+  }
+  footer code{
+    background:var(--ash); color:var(--panel-text);
+    border:1px solid var(--ember-dim); padding:1px 6px;
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>🔥 원무팀 지옥도 · 관리자</h1>
 
-  <div id="gate">
-    <p>4자리 PIN을 입력하세요 (키보드로 바로 입력)</p>
-    <div id="dots"><span></span><span></span><span></span><span></span></div>
-    <div id="gateError"></div>
-  </div>
+<svg id="floorflames" viewBox="0 0 300 70" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M0,70 C10,40 20,15 30,45 C40,70 50,30 60,10 C70,-5 80,25 90,50 C100,70 110,40 120,20 C130,0 140,30 150,55 C160,70 170,45 180,25 C190,5 200,35 210,55 C220,70 230,50 240,30 C250,10 260,40 270,60 C280,70 290,55 300,60 L300,70 Z" fill="#5a1508"/>
+</svg>
 
-  <div id="admin">
-    <div class="tabs" id="tabs"></div>
-    <div class="card">
-      <div class="count" id="count"></div>
-      <div id="list"></div>
-    </div>
+<div class="scene">
+  <header>
+    <h1>원무팀 지옥도</h1>
+    <p>캐릭터를 클릭하면 그 도구로 이동합니다.</p>
+    <input id="search" type="text" placeholder="도구 이름으로 찾기...">
+  </header>
 
-    <div class="card">
-      <strong>새 캐릭터 추가</strong>
-      <label>이름</label>
-      <input type="text" id="fName" placeholder="예: 처방 조회 도구">
-      <label>아이콘 (이모지 1개)</label>
-      <input type="text" id="fEmoji" placeholder="🔥" maxlength="4">
-      <label>설명</label>
-      <input type="text" id="fDesc" placeholder="이 도구가 뭐 하는 건지 한 줄">
+  <div id="center-ornament">🔥👹🔥<span>염라대왕도 두 손을 들었습니다.</span></div>
 
-      <label>등록 방식</label>
-      <div class="seg">
-        <label><input type="radio" name="mode" value="url" checked> 링크(URL)</label>
-        <label><input type="radio" name="mode" value="file"> HTML 파일 업로드</label>
-      </div>
+  <main id="map"></main>
 
-      <div id="urlField">
-        <label>주소</label>
-        <input type="text" id="fUrl" placeholder="https://...">
-      </div>
-      <div id="fileField" style="display:none;">
-        <label>HTML 파일 선택</label>
-        <input type="file" id="fFile" accept=".html,.htm">
-      </div>
-
-      <button id="addBtn">추가하기</button>
-      <div id="formMsg"></div>
-    </div>
-
-    <a class="back" href="index.html">← 지도로 돌아가기</a>
-
-    <div class="card" style="margin-top:18px;">
-      <strong>관리자 PIN 변경</strong>
-      <label>새 PIN (숫자 4자리)</label>
-      <input type="text" id="pinNew" inputmode="numeric" maxlength="4" placeholder="예: 1234">
-      <label>새 PIN 확인</label>
-      <input type="text" id="pinConfirm" inputmode="numeric" maxlength="4" placeholder="다시 입력">
-      <button id="pinBtn" style="margin-top:12px; width:100%; padding:10px; border:none; border-radius:8px; background:var(--ember-dim); color:#fff; font-weight:900; font-size:0.85rem; cursor:pointer;">PIN 변경하기</button>
-      <div id="pinMsg" style="font-size:0.8rem; margin-top:8px; min-height:1.2em;"></div>
-    </div>
-  </div>
+  <footer>
+    회색 망자는 아직 링크가 없는 도구예요.<br>
+    파일 안 <code>CONFIG</code>에서 <code>url</code> 값만 채우면 바로 저승에서 승천(?)합니다.
+    <div style="margin-top:18px; opacity:.7; font-size:0.68rem;">제작 · 영선</div>
+    <div style="margin-top:6px;"><a href="admin.html" style="color:#c9a98f; font-size:0.68rem;">관리자 페이지 →</a></div>
+  </footer>
 </div>
 
 <script>
-/* index.html 과 반드시 동일한 값으로 맞춰주세요 */
+/* ============================================================
+   CONFIG — 여기만 수정하면 지도가 바뀝니다.
+   url이 빈 문자열("")이면 회색 망자(준비중)로 표시됩니다.
+   ============================================================ */
+/* ============================================================
+   배포 후 이 값을 Apps Script 웹 앱 URL로 바꿔주세요 (Code.gs 참고)
+   ============================================================ */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCtH6IPuuBwaYtDCvzby4fCdUwN4xwhcg282JTL3U6tvauvBJmEg0boxmlHyQ-rd3yGA/exec";
-const VILLAGE_LIMIT = 8;
 
-const VILLAGES = [
-  { id: "wonmu", name: "발설지옥 · 원무" },
-  { id: "billing", name: "도산지옥 · 청구" },
-  { id: "stats", name: "거해지옥 · 통계" },
-  { id: "finance", name: "화탕지옥 · 자산" }
+/* 마을(섹터) 메타 정보 — 마을 자체를 추가/변경할 때만 여기를 수정하면 됩니다.
+   각 마을 안의 도구 "명단"은 이제 관리자 페이지에서 추가/삭제하며,
+   Google Sheets에서 실시간으로 불러옵니다. */
+const VILLAGE_META = [
+  { id: "wonmu", name: "발설지옥 · 원무 마을", sub: "말이 너무 많아 혀가 닳는 지옥", cloth: "#8a2a1f", hair: "#ff7a2e", bg: "flame" },
+  { id: "billing", name: "도산지옥 · 비급여·청구 마을", sub: "규정의 칼날 위를 걷는 지옥", cloth: "#5a6b78", hair: "#c9d3d8", bg: "blades" },
+  { id: "stats", name: "거해지옥 · 통계·분석 마을", sub: "매달 반복되는 집계에 톱질당하는 지옥", cloth: "#7a5a2f", hair: "#e0c07a", bg: "saw" },
+  { id: "finance", name: "화탕지옥 · 개인 자산 마을", sub: "널뛰는 시장에 속이 끓는 지옥", cloth: "#b23a1f", hair: "#ffb26b", bg: "cauldron" }
 ];
 
-let pin = "";
-let currentVillage = VILLAGES[0].id;
-let allTools = [];
-let verifiedPin = "";
+/* 백엔드 연결 전이거나 fetch 실패 시 보여줄 기본 명단(폴백) */
+const FALLBACK_TOOLS = [
+  { village: "wonmu", name: "입원 업무 현황", emoji: "🏥", url: "https://real4goon.github.io/admission/", desc: "KIOSK 업로드 기반 입원 워크로드 EMR" },
+  { village: "wonmu", name: "VIP 관리", emoji: "👑", url: "https://real4goon.github.io/hl-vip/", desc: "VIP 등급·일정·공지 통합 관리" },
+  { village: "wonmu", name: "원무 지식창고", emoji: "🔍", url: "https://real4goon.github.io/wonmu-search/", desc: "원무팀 업무 지식 검색" }
+];
 
-const dots = document.querySelectorAll("#dots span");
-function updateDots(){
-  dots.forEach((d,i) => d.classList.toggle("filled", i < pin.length));
-}
+const CONFIG = VILLAGE_META.map(v => ({ ...v, tools: [] }));
 
-document.addEventListener("keydown", e => {
-  if (document.getElementById("admin").style.display === "block") return;
-  if (/^[0-9]$/.test(e.key) && pin.length < 4) {
-    pin += e.key;
-    updateDots();
-    if (pin.length === 4) checkPin();
-  } else if (e.key === "Backspace") {
-    pin = pin.slice(0, -1);
-    updateDots();
+/* ---------- 조선시대 신분별 8비트 픽셀 캐릭터 4종 (특정 인물/작품 모작 아님) ----------
+   사또(sado) / 왕(king) / 신하(sinha) / 무당(mudang) — 마을 안에서 번갈아 등장
+   O=외곽선 S=피부 W=흰옷깃 H=모자/머리띠 C=옷 R=붉은장식 B=파란장식 .=투명 */
+const ARCHETYPE_DATA = {
+  sado: {
+    top: ["..HHHH..", ".HHHHHH.", "HHHHHHHH", ".OSSSSO.", ".OSOOSO.", "..OWWO..", "OCCCCCCO"],
+    H: "#1c1c1c", C: "#2c3e63"
+  },
+  king: {
+    top: ["..HHHH..", ".HHHHHH.", "HHHHHHHH", ".OSSSSO.", ".OSOOSO.", "..OWWO..", "OCCCCCCO"],
+    H: "#151515", C: "#c23b32"
+  },
+  sinha: {
+    top: ["..HHHH..", ".HHHHHH.", "HHHHHHHH", ".OSSSSO.", ".OSOOSO.", "..OWWO..", "OCCCCCCO"],
+    H: "#1c1c1c", C: "#3c6e5a"
+  },
+  mudang: {
+    top: ["..HHHH..", ".HHHHHH.", "HHHHHHHB", ".OSSSSO.", ".OSOOSO.", "..OSSO..", "RCCCCCCB"],
+    H: "#c9302c", C: "#d1a92c"
   }
-});
+};
+const LEG_A = [".OC..CO.", ".OO..OO."];
+const LEG_B = [".O.CC.O.", "OO....OO"];
+const ARCHETYPES = ["sado", "king", "sinha", "mudang"];
 
-async function checkPin(){
-  // 서버에 실제 쓰기 요청을 보낼 때 이 PIN이 함께 검증되므로,
-  // 여기서는 화면 전환만 가볍게 처리하고 실제 인증은 매 요청마다 서버에서 확인합니다.
-  verifiedPin = pin;
-  document.getElementById("gate").style.display = "none";
-  document.getElementById("admin").style.display = "block";
-  buildTabs();
-  await loadTools();
+function spriteHTML(rows, colorMap){
+  return rows.map(row =>
+    [...row].map(ch => `<div style="background:${colorMap[ch] || 'transparent'}"></div>`).join("")
+  ).join("");
+}
+function buildFrames(archetype){
+  const a = ARCHETYPE_DATA[archetype];
+  const colorMap = { O:"#150505", S:"#c9b39f", W:"#f1e2c4", H:a.H, C:a.C, R:"#a52a2a", B:"#1e3f8f" };
+  return {
+    a: spriteHTML([...a.top, ...LEG_A], colorMap),
+    b: spriteHTML([...a.top, ...LEG_B], colorMap)
+  };
 }
 
-function buildTabs(){
-  const tabs = document.getElementById("tabs");
-  tabs.innerHTML = "";
-  VILLAGES.forEach(v => {
-    const b = document.createElement("button");
-    b.className = "tab" + (v.id === currentVillage ? " active" : "");
-    b.textContent = v.name;
-    b.onclick = () => { currentVillage = v.id; buildTabs(); renderList(); };
-    tabs.appendChild(b);
+/* ---------- 마을별 배경 연출: 은은한 글로우 + 테마 아이콘(움직임 포함) ---------- */
+const DECOR = {
+  flame:    { icon: "🔥", motion: "flicker" },
+  blades:   { icon: "🗡️", motion: "sway" },
+  saw:      { icon: "🪚", motion: "spin" },
+  cauldron: { icon: "♨️", motion: "simmer" }
+};
+
+const map = document.getElementById("map");
+
+function render(filter = "") {
+  map.innerHTML = "";
+  const q = filter.trim().toLowerCase();
+
+  CONFIG.forEach(village => {
+    const filteredTools = village.tools.filter(t =>
+      !q || t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q)
+    );
+    if (q && filteredTools.length === 0) return;
+
+    const glowVar = getComputedStyle(document.documentElement).getPropertyValue(`--${village.id}-glow`).trim() || "#ffffff";
+
+    const section = document.createElement("section");
+    section.className = `village ${village.id}`;
+    const decor = DECOR[village.bg] || { icon: "🔥", motion: "flicker" };
+    section.innerHTML = `
+      <div class="village-glow">
+        <div class="blob" style="background:${glowVar}; left:-70px; top:-70px;"></div>
+        <div class="blob" style="background:${glowVar}; right:-80px; bottom:-60px; animation-delay:1.4s;"></div>
+        <span class="theme-icon ${decor.motion}">${decor.icon}</span>
+      </div>
+      <div class="village-content">
+        <div class="sign">${village.name}</div>
+        <div class="village-sub">${village.sub}</div>
+        <div class="spikes"></div>
+        <div class="npc-grid"></div>
+      </div>
+    `;
+    const grid = section.querySelector(".npc-grid");
+
+    filteredTools.forEach((tool, i) => {
+      const hasUrl = !!tool.url;
+      const archetype = ARCHETYPES[i % ARCHETYPES.length];
+      const el = document.createElement(hasUrl ? "a" : "div");
+      el.className = "npc" + (hasUrl ? "" : " pending");
+      if (hasUrl) { el.href = tool.url; el.target = "_blank"; el.rel = "noopener"; }
+      el.tabIndex = 0;
+      const delay = (i * 0.13).toFixed(2) + "s";
+      const frames = buildFrames(archetype);
+      el.innerHTML = `
+        <div class="patch">
+          <div class="sprite-stack" style="--d:${delay}">
+            <div class="sprite a" style="--d:${delay}">${frames.a}</div>
+            <div class="sprite b" style="--d:${delay}">${frames.b}</div>
+          </div>
+          <span class="item-badge">${tool.emoji}</span>
+        </div>
+        <span class="name">${tool.name}</span>
+        ${hasUrl ? "" : '<span class="status">준비중</span>'}
+        <span class="tip">${tool.desc}${hasUrl ? "" : " · 링크 미등록"}</span>
+      `;
+      grid.appendChild(el);
+    });
+
+    map.appendChild(section);
   });
 }
 
-async function loadTools(){
+document.getElementById("search").addEventListener("input", e => render(e.target.value));
+
+function applyTools(toolRows) {
+  CONFIG.forEach(v => (v.tools = []));
+  toolRows.forEach(t => {
+    const v = CONFIG.find(v => v.id === t.village);
+    if (v) v.tools.push({ name: t.name, emoji: t.emoji, url: t.url, desc: t.desc });
+  });
+}
+
+async function loadData() {
+  const map = document.getElementById("map");
+  map.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; font-weight:700; opacity:.7;">🔥 저승에서 명단 불러오는 중...</div>';
   try {
     const res = await fetch(SCRIPT_URL + "?action=getData");
     const data = await res.json();
-    allTools = (data.ok && data.tools) ? data.tools : [];
-  } catch(err){
-    allTools = [];
-  }
-  renderList();
-}
-
-function renderList(){
-  const list = document.getElementById("list");
-  const items = allTools.filter(t => t.village === currentVillage);
-  document.getElementById("count").textContent = `현재 ${items.length} / ${VILLAGE_LIMIT}명`;
-  document.getElementById("addBtn").disabled = items.length >= VILLAGE_LIMIT;
-
-  list.innerHTML = "";
-  if (items.length === 0){
-    list.innerHTML = '<div style="opacity:.6; font-size:0.82rem;">아직 아무도 없어요.</div>';
-    return;
-  }
-  items.forEach(t => {
-    const row = document.createElement("div");
-    row.className = "row";
-    row.innerHTML = `
-      <div class="info">
-        <span class="n">${t.emoji || "🔥"} ${t.name}</span>
-        <span class="u">${t.url || "(링크 없음)"}</span>
-      </div>
-      <button class="del">삭제</button>
-    `;
-    row.querySelector(".del").onclick = () => deleteTool(t.id, t.name);
-    list.appendChild(row);
-  });
-}
-
-async function deleteTool(id, name){
-  if (!confirm(`"${name}" 을(를) 삭제할까요?`)) return;
-  const res = await fetch(SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify({ action: "deleteTool", pin: verifiedPin, id })
-  });
-  const data = await res.json();
-  if (data.ok) {
-    await loadTools();
-  } else {
-    alert(data.error || "삭제 실패");
-  }
-}
-
-/* 등록 방식 토글 */
-document.querySelectorAll('input[name="mode"]').forEach(r => {
-  r.addEventListener("change", () => {
-    const isFile = document.querySelector('input[name="mode"]:checked').value === "file";
-    document.getElementById("urlField").style.display = isFile ? "none" : "block";
-    document.getElementById("fileField").style.display = isFile ? "block" : "none";
-  });
-});
-
-document.getElementById("addBtn").addEventListener("click", async () => {
-  const name = document.getElementById("fName").value.trim();
-  const emoji = document.getElementById("fEmoji").value.trim() || "🔥";
-  const desc = document.getElementById("fDesc").value.trim();
-  const mode = document.querySelector('input[name="mode"]:checked').value;
-  const msg = document.getElementById("formMsg");
-  msg.textContent = ""; msg.className = "";
-
-  if (!name){ msg.textContent = "이름을 입력해주세요."; msg.className = "err"; return; }
-
-  const payload = { action: "addTool", pin: verifiedPin, village: currentVillage, name, emoji, desc };
-
-  if (mode === "url") {
-    const url = document.getElementById("fUrl").value.trim();
-    if (!url){ msg.textContent = "링크를 입력해주세요."; msg.className = "err"; return; }
-    payload.url = url;
-    await submitTool(payload, msg);
-  } else {
-    const fileInput = document.getElementById("fFile");
-    const file = fileInput.files[0];
-    if (!file){ msg.textContent = "HTML 파일을 선택해주세요."; msg.className = "err"; return; }
-    const reader = new FileReader();
-    reader.onload = async () => {
-      payload.fileContent = reader.result;
-      await submitTool(payload, msg);
-    };
-    reader.readAsText(file, "utf-8");
-  }
-});
-
-async function submitTool(payload, msg){
-  document.getElementById("addBtn").disabled = true;
-  try {
-    const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
-    const data = await res.json();
-    if (data.ok) {
-      msg.textContent = "추가됐어요!";
-      msg.className = "ok";
-      document.getElementById("fName").value = "";
-      document.getElementById("fEmoji").value = "";
-      document.getElementById("fDesc").value = "";
-      document.getElementById("fUrl").value = "";
-      document.getElementById("fFile").value = "";
-      await loadTools();
+    if (data.ok && data.tools) {
+      applyTools(data.tools);
     } else {
-      msg.textContent = data.error || "추가 실패";
-      msg.className = "err";
+      applyTools(FALLBACK_TOOLS);
     }
-  } catch(err){
-    msg.textContent = "네트워크 오류: " + err;
-    msg.className = "err";
+  } catch (err) {
+    applyTools(FALLBACK_TOOLS);
   }
-  renderList();
+  render();
 }
 
-document.getElementById("pinBtn").addEventListener("click", async () => {
-  const newPin = document.getElementById("pinNew").value.trim();
-  const confirmPin = document.getElementById("pinConfirm").value.trim();
-  const msg = document.getElementById("pinMsg");
-  msg.textContent = ""; msg.className = "";
+loadData();
 
-  if (!/^[0-9]{4}$/.test(newPin)) {
-    msg.textContent = "PIN은 숫자 4자리로 입력해주세요.";
-    msg.className = "err";
-    return;
-  }
-  if (newPin !== confirmPin) {
-    msg.textContent = "두 PIN이 서로 달라요.";
-    msg.className = "err";
-    return;
-  }
-
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "changePin", pin: verifiedPin, newPin })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      verifiedPin = newPin; // 이 세션에서는 계속 새 PIN으로 요청하도록 갱신
-      msg.textContent = "PIN이 변경됐어요. 다음 접속부터 새 PIN을 입력해주세요.";
-      msg.className = "ok";
-      document.getElementById("pinNew").value = "";
-      document.getElementById("pinConfirm").value = "";
-    } else {
-      msg.textContent = data.error || "변경 실패";
-      msg.className = "err";
-    }
-  } catch(err){
-    msg.textContent = "네트워크 오류: " + err;
-    msg.className = "err";
-  }
-});
+/* 떠오르는 불씨 파티클 */
+const emberLayer = document.body;
+for (let i = 0; i < 18; i++) {
+  const e = document.createElement("span");
+  e.className = "ember-particle";
+  e.style.left = Math.random() * 100 + "vw";
+  e.style.setProperty("--drift", (Math.random()*40-20).toFixed(0) + "px");
+  e.style.animationDuration = (6 + Math.random()*6).toFixed(1) + "s";
+  e.style.animationDelay = (Math.random()*8).toFixed(1) + "s";
+  emberLayer.appendChild(e);
+}
 </script>
+
 </body>
 </html>

@@ -498,6 +498,8 @@ function applyTools(toolRows) {
 }
 
 async function loadData() {
+  const map = document.getElementById("map");
+  map.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; font-weight:700; opacity:.7;">🔥 저승에서 명단 불러오는 중...</div>';
   try {
     const res = await fetch(SCRIPT_URL + "?action=getData");
     const data = await res.json();

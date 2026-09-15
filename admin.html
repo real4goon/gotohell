@@ -123,6 +123,16 @@
     </div>
 
     <a class="back" href="index.html">← 지도로 돌아가기</a>
+
+    <div class="card" style="margin-top:18px;">
+      <strong>관리자 PIN 변경</strong>
+      <label>새 PIN (숫자 4자리)</label>
+      <input type="text" id="pinNew" inputmode="numeric" maxlength="4" placeholder="예: 1234">
+      <label>새 PIN 확인</label>
+      <input type="text" id="pinConfirm" inputmode="numeric" maxlength="4" placeholder="다시 입력">
+      <button id="pinBtn" style="margin-top:12px; width:100%; padding:10px; border:none; border-radius:8px; background:var(--ember-dim); color:#fff; font-weight:900; font-size:0.85rem; cursor:pointer;">PIN 변경하기</button>
+      <div id="pinMsg" style="font-size:0.8rem; margin-top:8px; min-height:1.2em;"></div>
+    </div>
   </div>
 </div>
 
@@ -150,6 +160,7 @@ function updateDots(){
 
 document.addEventListener("keydown", e => {
   if (document.getElementById("admin").style.display === "block") return;
+  if (checking) return;
   if (/^[0-9]$/.test(e.key) && pin.length < 4) {
     pin += e.key;
     updateDots();
@@ -160,14 +171,35 @@ document.addEventListener("keydown", e => {
   }
 });
 
+let checking = false;
+
 async function checkPin(){
-  // 서버에 실제 쓰기 요청을 보낼 때 이 PIN이 함께 검증되므로,
-  // 여기서는 화면 전환만 가볍게 처리하고 실제 인증은 매 요청마다 서버에서 확인합니다.
-  verifiedPin = pin;
-  document.getElementById("gate").style.display = "none";
-  document.getElementById("admin").style.display = "block";
-  buildTabs();
-  await loadTools();
+  checking = true;
+  document.getElementById("gateError").textContent = "확인 중...";
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "verifyPin", pin })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      verifiedPin = pin;
+      document.getElementById("gateError").textContent = "";
+      document.getElementById("gate").style.display = "none";
+      document.getElementById("admin").style.display = "block";
+      buildTabs();
+      await loadTools();
+    } else {
+      document.getElementById("gateError").textContent = "PIN이 올바르지 않습니다.";
+      pin = "";
+      updateDots();
+    }
+  } catch(err) {
+    document.getElementById("gateError").textContent = "네트워크 오류: " + err;
+    pin = "";
+    updateDots();
+  }
+  checking = false;
 }
 
 function buildTabs(){
@@ -296,6 +328,45 @@ async function submitTool(payload, msg){
   }
   renderList();
 }
+
+document.getElementById("pinBtn").addEventListener("click", async () => {
+  const newPin = document.getElementById("pinNew").value.trim();
+  const confirmPin = document.getElementById("pinConfirm").value.trim();
+  const msg = document.getElementById("pinMsg");
+  msg.textContent = ""; msg.className = "";
+
+  if (!/^[0-9]{4}$/.test(newPin)) {
+    msg.textContent = "PIN은 숫자 4자리로 입력해주세요.";
+    msg.className = "err";
+    return;
+  }
+  if (newPin !== confirmPin) {
+    msg.textContent = "두 PIN이 서로 달라요.";
+    msg.className = "err";
+    return;
+  }
+
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "changePin", pin: verifiedPin, newPin })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      verifiedPin = newPin; // 이 세션에서는 계속 새 PIN으로 요청하도록 갱신
+      msg.textContent = "PIN이 변경됐어요. 다음 접속부터 새 PIN을 입력해주세요.";
+      msg.className = "ok";
+      document.getElementById("pinNew").value = "";
+      document.getElementById("pinConfirm").value = "";
+    } else {
+      msg.textContent = data.error || "변경 실패";
+      msg.className = "err";
+    }
+  } catch(err){
+    msg.textContent = "네트워크 오류: " + err;
+    msg.className = "err";
+  }
+});
 </script>
 </body>
 </html>

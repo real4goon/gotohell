@@ -141,6 +141,19 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCtH6IPuuBwaYtDCvzby4fCdUwN4xwhcg282JTL3U6tvauvBJmEg0boxmlHyQ-rd3yGA/exec";
 const VILLAGE_LIMIT = 8;
 
+async function fetchJSON(url, options, retries = 1){
+  for (let attempt = 0; attempt <= retries; attempt++){
+    try {
+      const res = await fetch(url, options);
+      const text = await res.text();
+      return JSON.parse(text);
+    } catch(err){
+      if (attempt === retries) throw err;
+      await new Promise(r => setTimeout(r, 700));
+    }
+  }
+}
+
 const VILLAGES = [
   { id: "wonmu", name: "발설지옥 · 원무" },
   { id: "billing", name: "도산지옥 · 청구" },
@@ -177,25 +190,25 @@ async function checkPin(){
   checking = true;
   document.getElementById("gateError").textContent = "확인 중...";
   try {
-    const res = await fetch(SCRIPT_URL, {
+    const data = await fetchJSON(SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({ action: "verifyPin", pin })
-    });
-    const data = await res.json();
+    }, 1);
     if (data.ok) {
       verifiedPin = pin;
+      allTools = data.tools || [];
       document.getElementById("gateError").textContent = "";
       document.getElementById("gate").style.display = "none";
       document.getElementById("admin").style.display = "block";
       buildTabs();
-      await loadTools();
+      renderList();
     } else {
-      document.getElementById("gateError").textContent = "PIN이 올바르지 않습니다.";
+      document.getElementById("gateError").textContent = data.error || "PIN이 올바르지 않습니다.";
       pin = "";
       updateDots();
     }
   } catch(err) {
-    document.getElementById("gateError").textContent = "네트워크 오류: " + err;
+    document.getElementById("gateError").textContent = "네트워크 오류, 다시 시도해주세요.";
     pin = "";
     updateDots();
   }
@@ -216,8 +229,7 @@ function buildTabs(){
 
 async function loadTools(){
   try {
-    const res = await fetch(SCRIPT_URL + "?action=getData");
-    const data = await res.json();
+    const data = await fetchJSON(SCRIPT_URL + "?action=getData", undefined, 1);
     allTools = (data.ok && data.tools) ? data.tools : [];
   } catch(err){
     allTools = [];
@@ -253,15 +265,18 @@ function renderList(){
 
 async function deleteTool(id, name){
   if (!confirm(`"${name}" 을(를) 삭제할까요?`)) return;
-  const res = await fetch(SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify({ action: "deleteTool", pin: verifiedPin, id })
-  });
-  const data = await res.json();
-  if (data.ok) {
-    await loadTools();
-  } else {
-    alert(data.error || "삭제 실패");
+  try {
+    const data = await fetchJSON(SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "deleteTool", pin: verifiedPin, id })
+    }, 1);
+    if (data.ok) {
+      await loadTools();
+    } else {
+      alert(data.error || "삭제 실패");
+    }
+  } catch(err){
+    alert("네트워크 오류, 다시 시도해주세요.");
   }
 }
 
@@ -307,8 +322,7 @@ document.getElementById("addBtn").addEventListener("click", async () => {
 async function submitTool(payload, msg){
   document.getElementById("addBtn").disabled = true;
   try {
-    const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
-    const data = await res.json();
+    const data = await fetchJSON(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }, 1);
     if (data.ok) {
       msg.textContent = "추가됐어요!";
       msg.className = "ok";
@@ -323,7 +337,7 @@ async function submitTool(payload, msg){
       msg.className = "err";
     }
   } catch(err){
-    msg.textContent = "네트워크 오류: " + err;
+    msg.textContent = "네트워크 오류, 다시 시도해주세요.";
     msg.className = "err";
   }
   renderList();
@@ -347,11 +361,10 @@ document.getElementById("pinBtn").addEventListener("click", async () => {
   }
 
   try {
-    const res = await fetch(SCRIPT_URL, {
+    const data = await fetchJSON(SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({ action: "changePin", pin: verifiedPin, newPin })
-    });
-    const data = await res.json();
+    }, 1);
     if (data.ok) {
       verifiedPin = newPin; // 이 세션에서는 계속 새 PIN으로 요청하도록 갱신
       msg.textContent = "PIN이 변경됐어요. 다음 접속부터 새 PIN을 입력해주세요.";
@@ -363,7 +376,7 @@ document.getElementById("pinBtn").addEventListener("click", async () => {
       msg.className = "err";
     }
   } catch(err){
-    msg.textContent = "네트워크 오류: " + err;
+    msg.textContent = "네트워크 오류, 다시 시도해주세요.";
     msg.className = "err";
   }
 });

@@ -50,16 +50,25 @@
     padding:8px 0; border-bottom:1px solid rgba(255,255,255,.08);
   }
   .row:last-child{ border-bottom:none; }
-  .row .info{ font-size:0.85rem; }
+  .row .info{ font-size:0.85rem; min-width:0; flex:1; }
   .row .info .n{ font-weight:700; }
   .row .info .u{ display:block; font-size:0.72rem; opacity:.6; word-break:break-all; }
-  .actions{ display:flex; gap:6px; flex-shrink:0; }
-  .edit, .del{
+  .actions{ display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; flex-shrink:0; max-width:230px; }
+  .edit, .del, .move, .file-del{
     color:#fff; border:none; border-radius:6px;
-    padding:6px 10px; font-size:0.75rem; cursor:pointer;
+    padding:6px 9px; font-size:0.72rem; cursor:pointer;
   }
   .edit{ background:#6a5525; }
   .del{ background:#6b2110; }
+  .move{ background:#3f4c57; min-width:31px; }
+  .move:disabled{ opacity:.28; cursor:default; }
+  .file-del{ background:#714224; }
+  .list-help{ margin:-5px 0 10px; opacity:.62; font-size:0.72rem; line-height:1.5; }
+  @media (max-width:560px){
+    .row{ align-items:flex-start; }
+    .actions{ max-width:145px; }
+    .edit, .del, .move, .file-del{ padding:6px 7px; font-size:0.68rem; }
+  }
 
   label{ display:block; font-size:0.8rem; font-weight:700; margin:10px 0 4px; }
   input[type=text], textarea{
@@ -98,6 +107,7 @@
     <div class="tabs" id="tabs"></div>
     <div class="card">
       <div class="count" id="count"></div>
+      <div class="list-help">↑ ↓ 버튼으로 메인 화면의 표시 순서를 바꿀 수 있습니다. HTML 업로드 항목은 파일만 따로 삭제할 수 있습니다.</div>
       <div id="list"></div>
     </div>
 
@@ -293,23 +303,70 @@ function renderList(){
     list.innerHTML = '<div style="opacity:.6; font-size:0.82rem;">아직 아무도 없어요.</div>';
     return;
   }
-  items.forEach(t => {
+  items.forEach((t, index) => {
     const row = document.createElement("div");
     row.className = "row";
     row.innerHTML = `
       <div class="info">
-        <span class="n">${escapeHTML(t.emoji || "🔥")} ${escapeHTML(t.name)}</span>
+        <span class="n">${index + 1}. ${escapeHTML(t.emoji || "🔥")} ${escapeHTML(t.name)}</span>
         <span class="u">${escapeHTML(t.url || "(링크 없음)")}</span>
       </div>
       <div class="actions">
+        <button class="move up" type="button" title="위로 이동" ${index === 0 ? "disabled" : ""}>↑</button>
+        <button class="move down" type="button" title="아래로 이동" ${index === items.length - 1 ? "disabled" : ""}>↓</button>
         <button class="edit" type="button">수정</button>
+        ${t.fileId ? '<button class="file-del" type="button">파일삭제</button>' : ''}
         <button class="del" type="button">삭제</button>
       </div>
     `;
+    const up = row.querySelector(".up");
+    const down = row.querySelector(".down");
+    if (up) up.onclick = () => moveTool(t.id, "up");
+    if (down) down.onclick = () => moveTool(t.id, "down");
     row.querySelector(".edit").onclick = () => startEdit(t);
+    const fileDel = row.querySelector(".file-del");
+    if (fileDel) fileDel.onclick = () => deleteAttachment(t.id, t.name);
     row.querySelector(".del").onclick = () => deleteTool(t.id, t.name);
     list.appendChild(row);
   });
+}
+
+async function applyServerToolList(data){
+  if (data && Array.isArray(data.tools)) {
+    allTools = data.tools;
+    saveMainCache(allTools);
+    renderList();
+    return true;
+  }
+  return false;
+}
+
+async function moveTool(id, direction){
+  try {
+    const data = await fetchJSON(SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "moveTool", pin: verifiedPin, id, direction, clientId })
+    }, 1);
+    if (!data.ok) return alert(data.error || "순서 변경 실패");
+    await applyServerToolList(data);
+  } catch(err){
+    alert("순서 변경 중 네트워크 오류가 발생했습니다.");
+  }
+}
+
+async function deleteAttachment(id, name){
+  if (!confirm(`"${name}"의 업로드 HTML 파일만 삭제할까요?\n항목 자체는 남고 메인에서는 준비중으로 표시됩니다.`)) return;
+  try {
+    const data = await fetchJSON(SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "deleteAttachment", pin: verifiedPin, id, clientId })
+    }, 1);
+    if (!data.ok) return alert(data.error || "첨부파일 삭제 실패");
+    await applyServerToolList(data);
+    if (editingToolId === String(id)) resetForm();
+  } catch(err){
+    alert("첨부파일 삭제 중 네트워크 오류가 발생했습니다.");
+  }
 }
 
 function setMode(mode){

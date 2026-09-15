@@ -164,8 +164,11 @@ const clientId = (() => {
   }
 })();
 
-function invalidateMainCache(){
-  try { localStorage.removeItem(MAIN_CACHE_KEY); } catch (_) {}
+function saveMainCache(tools){
+  try {
+    if (!Array.isArray(tools)) return;
+    localStorage.setItem(MAIN_CACHE_KEY, JSON.stringify({ tools, savedAt: Date.now() }));
+  } catch (_) {}
 }
 
 function isValidHttpUrl(value){
@@ -270,10 +273,11 @@ function buildTabs(){
 
 async function loadTools(){
   try {
-    const data = await fetchJSON(SCRIPT_URL + "?action=getData", undefined, 1);
-    allTools = (data.ok && data.tools) ? data.tools : [];
+    const data = await fetchJSON(SCRIPT_URL + "?action=getData&_=" + Date.now(), undefined, 1);
+    allTools = (data.ok && Array.isArray(data.tools)) ? data.tools : [];
+    if (allTools.length) saveMainCache(allTools);
   } catch(err){
-    allTools = [];
+    // 네트워크 오류가 나도 현재 관리자 화면의 목록은 지우지 않는다.
   }
   renderList();
 }
@@ -373,9 +377,15 @@ async function deleteTool(id, name){
       body: JSON.stringify({ action: "deleteTool", pin: verifiedPin, id, clientId })
     }, 1);
     if (data.ok) {
-      invalidateMainCache();
+      if (Array.isArray(data.tools)) {
+        allTools = data.tools;
+        saveMainCache(allTools);
+      } else {
+        allTools = allTools.filter(t => String(t.id) !== String(id));
+        saveMainCache(allTools);
+      }
       if (editingToolId === id) resetForm();
-      await loadTools();
+      renderList();
     } else {
       alert(data.error || "삭제 실패");
     }
@@ -447,9 +457,12 @@ async function submitTool(payload, msg){
   try {
     const data = await fetchJSON(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }, 1);
     if (data.ok) {
-      invalidateMainCache();
       const wasEdit = payload.action === "updateTool";
-      msg.textContent = wasEdit ? "수정됐어요!" : "추가됐어요!";
+      if (Array.isArray(data.tools)) {
+        allTools = data.tools;
+        saveMainCache(allTools);
+      }
+      msg.textContent = wasEdit ? "수정됐어요! 메인 화면에도 즉시 반영됩니다." : "추가됐어요! 메인 화면에도 즉시 반영됩니다.";
       msg.className = "ok";
       editingToolId = null;
       document.getElementById("formTitle").textContent = "새 캐릭터 추가";
@@ -463,7 +476,11 @@ async function submitTool(payload, msg){
       document.getElementById("fUrl").value = "";
       document.getElementById("fFile").value = "";
       setMode("url");
-      await loadTools();
+      if (!Array.isArray(data.tools)) {
+        await loadTools();
+      } else {
+        renderList();
+      }
     } else {
       msg.textContent = data.error || "추가 실패";
       msg.className = "err";

@@ -383,7 +383,7 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCtH6IPuuBwaYtDCvzby4fCdUwN4xwhcg282JTL3U6tvauvBJmEg0boxmlHyQ-rd3yGA/exec";
 const LOCAL_CACHE_KEY = "gotohell-tools-v2";
 const LOCAL_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7일: 오래돼도 먼저 표시 후 즉시 갱신
-const FETCH_TIMEOUT_MS = 8000;
+const FETCH_TIMEOUT_MS = 20000; // Apps Script 콜드스타트 대비. 화면은 로컬 캐시로 즉시 표시됨
 
 /* 마을(섹터) 메타 정보 — 마을 자체를 추가/변경할 때만 여기를 수정하면 됩니다.
    각 마을 안의 도구 "명단"은 이제 관리자 페이지에서 추가/삭제하며,
@@ -607,7 +607,7 @@ async function loadData() {
   }
 
   try {
-    const data = await fetchJSON(SCRIPT_URL + "?action=getData", 0);
+    const data = await fetchJSON(SCRIPT_URL + "?action=getData&_=" + Date.now(), 1);
     if (!data.ok || !Array.isArray(data.tools)) throw new Error(data.error || "잘못된 응답");
     applyTools(data.tools);
     saveLocalTools(data.tools);

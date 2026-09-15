@@ -53,10 +53,13 @@
   .row .info{ font-size:0.85rem; }
   .row .info .n{ font-weight:700; }
   .row .info .u{ display:block; font-size:0.72rem; opacity:.6; word-break:break-all; }
-  .del{
-    background:#6b2110; color:#fff; border:none; border-radius:6px;
-    padding:6px 10px; font-size:0.75rem; cursor:pointer; flex-shrink:0;
+  .actions{ display:flex; gap:6px; flex-shrink:0; }
+  .edit, .del{
+    color:#fff; border:none; border-radius:6px;
+    padding:6px 10px; font-size:0.75rem; cursor:pointer;
   }
+  .edit{ background:#6a5525; }
+  .del{ background:#6b2110; }
 
   label{ display:block; font-size:0.8rem; font-weight:700; margin:10px 0 4px; }
   input[type=text], textarea{
@@ -70,6 +73,10 @@
     background:var(--ember); color:#1c0805; font-weight:900; font-size:0.9rem; cursor:pointer;
   }
   #addBtn:disabled{ opacity:.4; cursor:not-allowed; }
+  #cancelEditBtn{
+    display:none; margin-top:8px; width:100%; padding:9px; border:1px solid var(--ember-dim);
+    border-radius:8px; background:transparent; color:var(--panel-text); font-weight:700; cursor:pointer;
+  }
   #formMsg{ font-size:0.8rem; margin-top:8px; min-height:1.2em; }
   #formMsg.ok{ color:#8fd68a; }
   #formMsg.err{ color:#ff8a6a; }
@@ -94,8 +101,8 @@
       <div id="list"></div>
     </div>
 
-    <div class="card">
-      <strong>새 캐릭터 추가</strong>
+    <div class="card" id="toolFormCard">
+      <strong id="formTitle">새 캐릭터 추가</strong>
       <label>이름</label>
       <input type="text" id="fName" placeholder="예: 처방 조회 도구">
       <label>아이콘 (이모지 1개)</label>
@@ -114,11 +121,13 @@
         <input type="text" id="fUrl" placeholder="https://...">
       </div>
       <div id="fileField" style="display:none;">
-        <label>HTML 파일 선택</label>
+        <label id="fileLabel">HTML 파일 선택</label>
         <input type="file" id="fFile" accept=".html,.htm">
+        <div id="fileHelp" style="font-size:0.72rem; opacity:.65; margin-top:5px;"></div>
       </div>
 
       <button id="addBtn">추가하기</button>
+      <button id="cancelEditBtn" type="button">수정 취소</button>
       <div id="formMsg"></div>
     </div>
 
@@ -190,6 +199,7 @@ let pin = "";
 let currentVillage = VILLAGES[0].id;
 let allTools = [];
 let verifiedPin = "";
+let editingToolId = null;
 
 function escapeHTML(value) {
   return String(value ?? "").replace(/[&<>"']/g, ch => ({
@@ -272,7 +282,7 @@ function renderList(){
   const list = document.getElementById("list");
   const items = allTools.filter(t => t.village === currentVillage);
   document.getElementById("count").textContent = `현재 ${items.length} / ${VILLAGE_LIMIT}명`;
-  document.getElementById("addBtn").disabled = items.length >= VILLAGE_LIMIT;
+  document.getElementById("addBtn").disabled = !editingToolId && items.length >= VILLAGE_LIMIT;
 
   list.innerHTML = "";
   if (items.length === 0){
@@ -287,12 +297,73 @@ function renderList(){
         <span class="n">${escapeHTML(t.emoji || "🔥")} ${escapeHTML(t.name)}</span>
         <span class="u">${escapeHTML(t.url || "(링크 없음)")}</span>
       </div>
-      <button class="del">삭제</button>
+      <div class="actions">
+        <button class="edit" type="button">수정</button>
+        <button class="del" type="button">삭제</button>
+      </div>
     `;
+    row.querySelector(".edit").onclick = () => startEdit(t);
     row.querySelector(".del").onclick = () => deleteTool(t.id, t.name);
     list.appendChild(row);
   });
 }
+
+function setMode(mode){
+  const radio = document.querySelector(`input[name="mode"][value="${mode}"]`);
+  if (radio) radio.checked = true;
+  const isFile = mode === "file";
+  document.getElementById("urlField").style.display = isFile ? "none" : "block";
+  document.getElementById("fileField").style.display = isFile ? "block" : "none";
+}
+
+function resetForm(){
+  editingToolId = null;
+  document.getElementById("formTitle").textContent = "새 캐릭터 추가";
+  document.getElementById("addBtn").textContent = "추가하기";
+  document.getElementById("cancelEditBtn").style.display = "none";
+  document.getElementById("fileLabel").textContent = "HTML 파일 선택";
+  document.getElementById("fileHelp").textContent = "";
+  document.getElementById("fName").value = "";
+  document.getElementById("fEmoji").value = "";
+  document.getElementById("fDesc").value = "";
+  document.getElementById("fUrl").value = "";
+  document.getElementById("fFile").value = "";
+  document.getElementById("formMsg").textContent = "";
+  document.getElementById("formMsg").className = "";
+  setMode("url");
+  renderList();
+}
+
+function startEdit(tool){
+  editingToolId = String(tool.id || "");
+  currentVillage = String(tool.village || currentVillage);
+  buildTabs();
+  document.getElementById("formTitle").textContent = `캐릭터 수정 · ${tool.name || ""}`;
+  document.getElementById("addBtn").textContent = "수정 저장하기";
+  document.getElementById("cancelEditBtn").style.display = "block";
+  document.getElementById("fName").value = tool.name || "";
+  document.getElementById("fEmoji").value = tool.emoji || "";
+  document.getElementById("fDesc").value = tool.desc || "";
+  document.getElementById("fFile").value = "";
+
+  if (tool.fileId) {
+    setMode("file");
+    document.getElementById("fUrl").value = "";
+    document.getElementById("fileLabel").textContent = "HTML 파일 교체 (선택사항)";
+    document.getElementById("fileHelp").textContent = "파일을 선택하지 않으면 현재 업로드된 HTML은 그대로 유지됩니다.";
+  } else {
+    setMode("url");
+    document.getElementById("fUrl").value = tool.url || "";
+    document.getElementById("fileLabel").textContent = "HTML 파일 선택";
+    document.getElementById("fileHelp").textContent = "";
+  }
+  document.getElementById("formMsg").textContent = "수정할 내용을 바꾼 뒤 저장하세요.";
+  document.getElementById("formMsg").className = "";
+  document.getElementById("toolFormCard")?.scrollIntoView({ behavior:"smooth", block:"start" });
+  renderList();
+}
+
+document.getElementById("cancelEditBtn").addEventListener("click", resetForm);
 
 async function deleteTool(id, name){
   if (!confirm(`"${name}" 을(를) 삭제할까요?`)) return;
@@ -303,6 +374,7 @@ async function deleteTool(id, name){
     }, 1);
     if (data.ok) {
       invalidateMainCache();
+      if (editingToolId === id) resetForm();
       await loadTools();
     } else {
       alert(data.error || "삭제 실패");
@@ -315,9 +387,16 @@ async function deleteTool(id, name){
 /* 등록 방식 토글 */
 document.querySelectorAll('input[name="mode"]').forEach(r => {
   r.addEventListener("change", () => {
-    const isFile = document.querySelector('input[name="mode"]:checked').value === "file";
-    document.getElementById("urlField").style.display = isFile ? "none" : "block";
-    document.getElementById("fileField").style.display = isFile ? "block" : "none";
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    setMode(mode);
+    const tool = editingToolId ? allTools.find(t => String(t.id) === editingToolId) : null;
+    if (mode === "file" && tool && tool.fileId) {
+      document.getElementById("fileLabel").textContent = "HTML 파일 교체 (선택사항)";
+      document.getElementById("fileHelp").textContent = "파일을 선택하지 않으면 현재 업로드된 HTML은 그대로 유지됩니다.";
+    } else {
+      document.getElementById("fileLabel").textContent = "HTML 파일 선택";
+      document.getElementById("fileHelp").textContent = "";
+    }
   });
 });
 
@@ -331,7 +410,12 @@ document.getElementById("addBtn").addEventListener("click", async () => {
 
   if (!name){ msg.textContent = "이름을 입력해주세요."; msg.className = "err"; return; }
 
-  const payload = { action: "addTool", pin: verifiedPin, clientId, village: currentVillage, name, emoji, desc };
+  const isEdit = !!editingToolId;
+  const payload = {
+    action: isEdit ? "updateTool" : "addTool",
+    pin: verifiedPin, clientId, village: currentVillage, name, emoji, desc, mode
+  };
+  if (isEdit) payload.id = editingToolId;
 
   if (mode === "url") {
     const url = document.getElementById("fUrl").value.trim();
@@ -340,9 +424,15 @@ document.getElementById("addBtn").addEventListener("click", async () => {
     payload.url = url;
     await submitTool(payload, msg);
   } else {
-    const fileInput = document.getElementById("fFile");
-    const file = fileInput.files[0];
-    if (!file){ msg.textContent = "HTML 파일을 선택해주세요."; msg.className = "err"; return; }
+    const file = document.getElementById("fFile").files[0];
+    const existing = isEdit ? allTools.find(t => String(t.id) === editingToolId) : null;
+    if (!file) {
+      if (!isEdit || !existing || !existing.fileId) {
+        msg.textContent = "HTML 파일을 선택해주세요."; msg.className = "err"; return;
+      }
+      await submitTool(payload, msg);
+      return;
+    }
     const reader = new FileReader();
     reader.onload = async () => {
       payload.fileContent = reader.result;
@@ -358,13 +448,21 @@ async function submitTool(payload, msg){
     const data = await fetchJSON(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }, 1);
     if (data.ok) {
       invalidateMainCache();
-      msg.textContent = "추가됐어요!";
+      const wasEdit = payload.action === "updateTool";
+      msg.textContent = wasEdit ? "수정됐어요!" : "추가됐어요!";
       msg.className = "ok";
+      editingToolId = null;
+      document.getElementById("formTitle").textContent = "새 캐릭터 추가";
+      document.getElementById("addBtn").textContent = "추가하기";
+      document.getElementById("cancelEditBtn").style.display = "none";
+      document.getElementById("fileLabel").textContent = "HTML 파일 선택";
+      document.getElementById("fileHelp").textContent = "";
       document.getElementById("fName").value = "";
       document.getElementById("fEmoji").value = "";
       document.getElementById("fDesc").value = "";
       document.getElementById("fUrl").value = "";
       document.getElementById("fFile").value = "";
+      setMode("url");
       await loadTools();
     } else {
       msg.textContent = data.error || "추가 실패";

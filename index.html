@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>원무팀 지옥도</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --outline:#160606;
+    --panel:#241412;
+    --panel-text:#f3ddc4;
+    --ember:#ff7a2e;
+    --ember-dim:#c1541c;
+    --ash:#160d0b;
+
+    --wonmu:#8a2a1f;   --wonmu-glow:#ff5a2e;
+    --billing:#5a6b78; --billing-glow:#c9d9e2;
+    --stats:#7a5a2f;   --stats-glow:#e0c07a;
+    --finance:#b23a1f; --finance-glow:#ffb26b;
+  }
+  *{box-sizing:border-box; image-rendering:pixelated;}
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    font-family:'Noto Sans KR', sans-serif;
+    color:var(--panel-text);
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 15%, rgba(255,90,20,.20) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 35% at 85% 10%, rgba(255,60,20,.16) 0%, transparent 60%),
+      radial-gradient(ellipse at 50% 0%, #4a1108 0%, #1c0805 55%, #070302 100%);
+    min-height:100vh;
+    position:relative;
+    overflow-x:hidden;
+  }
+
+  /* floating embers */
+  .ember-particle{
+    position:fixed;
+    bottom:-10px;
+    width:3px; height:3px;
+    background:var(--ember);
+    border-radius:50%;
+    box-shadow:0 0 6px 1px rgba(255,122,46,.9);
+    opacity:0;
+    pointer-events:none;
+    animation:rise linear infinite;
+    z-index:0;
+  }
+  @keyframes rise{
+    0%{ transform:translateY(0) translateX(0); opacity:0; }
+    10%{ opacity:.9; }
+    90%{ opacity:.5; }
+    100%{ transform:translateY(-100vh) translateX(var(--drift,20px)); opacity:0; }
+  }
+
+  /* bottom flame silhouette strip */
+  #floorflames{
+    position:fixed; left:0; right:0; bottom:0; height:70px;
+    z-index:0; pointer-events:none; opacity:.5;
+  }
+
+  .scene{
+    max-width:1080px;
+    margin:0 auto;
+    padding:36px 22px 70px;
+    position:relative;
+    z-index:2;
+  }
+
+  .deco{ position:absolute; font-size:1.9rem; filter:drop-shadow(0 0 6px rgba(255,110,30,.6)); pointer-events:none; user-select:none; opacity:.9; }
+
+  header{ text-align:center; margin-bottom:26px; position:relative; z-index:2; }
+  header h1{
+    font-family:'Noto Sans KR', sans-serif;
+    font-weight:900;
+    font-size:1.7rem;
+    color:var(--ember);
+    text-shadow:3px 3px 0 var(--outline), 0 0 18px rgba(255,122,46,.55);
+    margin:0 0 14px;
+    line-height:1.5;
+  }
+  header p{
+    display:inline-block;
+    background:var(--panel);
+    border:3px solid var(--outline);
+    box-shadow:4px 4px 0 var(--outline), 0 0 16px rgba(255,90,20,.25);
+    padding:9px 16px;
+    font-size:0.82rem;
+    font-weight:700;
+    line-height:1.6;
+    max-width:480px;
+  }
+  #search{
+    display:block;
+    margin:18px auto 0;
+    width:min(300px, 88%);
+    padding:9px 14px;
+    border:3px solid var(--outline);
+    background:var(--ash);
+    color:var(--panel-text);
+    font-family:'Noto Sans KR', sans-serif;
+    font-weight:700;
+    font-size:0.85rem;
+    outline:none;
+  }
+  #search::placeholder{ color:#a68c7c; }
+
+  #center-ornament{
+    position:relative;
+    text-align:center;
+    font-size:2.4rem;
+    margin:6px 0 20px;
+    filter:drop-shadow(0 0 16px rgba(255,110,30,.7));
+    z-index:2;
+  }
+  #center-ornament span{
+    display:block;
+    font-weight:900;
+    font-size:0.72rem;
+    color:#caa085;
+    margin-top:6px;
+  }
+
+  main{
+    position:relative;
+    z-index:2;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:34px 30px;
+  }
+  @media (max-width:740px){ main{grid-template-columns:1fr;} }
+
+  .village{
+    position:relative;
+    background:var(--panel);
+    border:4px solid var(--outline);
+    box-shadow:6px 6px 0 var(--outline);
+  }
+  .village-glow{
+    position:absolute;
+    inset:0;
+    overflow:hidden;
+    z-index:0;
+    pointer-events:none;
+  }
+  .blob{
+    position:absolute;
+    width:220px; height:220px;
+    border-radius:50%;
+    filter:blur(42px);
+    opacity:.3;
+    animation:breathe 4.5s ease-in-out infinite;
+  }
+  @keyframes breathe{
+    0%,100%{ transform:scale(1); opacity:.24; }
+    50%{ transform:scale(1.18); opacity:.4; }
+  }
+  .theme-icon{
+    position:absolute;
+    bottom:12px; right:16px;
+    font-size:2.3rem;
+    opacity:.5;
+  }
+  .theme-icon.flicker{ animation:flicker 1.3s ease-in-out infinite; }
+  @keyframes flicker{
+    0%,100%{ transform:scale(1) rotate(-3deg); opacity:.45; }
+    50%{ transform:scale(1.15) rotate(4deg); opacity:.75; }
+  }
+  .theme-icon.sway{ animation:sway 2.1s ease-in-out infinite; transform-origin:top center; }
+  @keyframes sway{
+    0%,100%{ transform:rotate(-10deg); }
+    50%{ transform:rotate(10deg); }
+  }
+  .theme-icon.spin{ animation:spin 4.5s linear infinite; }
+  @keyframes spin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+  .theme-icon.simmer{ animation:simmer 1.7s ease-in-out infinite; }
+  @keyframes simmer{
+    0%,100%{ transform:translateY(0) scale(1); opacity:.5; }
+    50%{ transform:translateY(-7px) scale(1.08); opacity:.8; }
+  }
+  .village-content{ position:relative; z-index:1; }
+
+  .sign{
+    position:relative;
+    margin:-24px auto 0;
+    width:fit-content;
+    border:4px solid var(--outline);
+    box-shadow:3px 3px 0 var(--outline), 0 0 12px rgba(0,0,0,.5);
+    padding:9px 20px;
+    color:#fff8ef;
+    font-weight:900;
+    font-size:1.02rem;
+    letter-spacing:-0.01em;
+    line-height:1.5;
+    text-align:center;
+    text-shadow:2px 2px 0 rgba(0,0,0,.55);
+    background-image:repeating-linear-gradient(90deg, rgba(0,0,0,.15) 0 6px, transparent 6px 12px);
+  }
+  .sign::after{
+    content:"";
+    position:absolute;
+    left:50%; bottom:-14px;
+    transform:translateX(-50%);
+    width:6px; height:14px;
+    background:var(--outline);
+  }
+  .village-sub{
+    text-align:center;
+    padding:10px 10px 0;
+    font-size:0.74rem;
+    color:#dcc3ac;
+    font-weight:700;
+  }
+  .spikes{
+    height:14px;
+    margin-top:14px;
+    background-image:repeating-linear-gradient(90deg, #4a1b12 0 4px, transparent 4px 16px);
+    border-top:2px solid var(--outline);
+    border-bottom:2px solid var(--outline);
+  }
+
+  .village.wonmu .sign, .village.wonmu .spikes{ background-color:var(--wonmu); }
+  .village.billing .sign, .village.billing .spikes{ background-color:var(--billing); }
+  .village.stats .sign, .village.stats .spikes{ background-color:var(--stats); }
+  .village.finance .sign, .village.finance .spikes{ background-color:var(--finance); }
+
+  .npc-grid{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:16px;
+    padding:16px;
+  }
+  .npc{
+    position:relative;
+    width:84px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    text-decoration:none;
+    color:var(--panel-text);
+    cursor:pointer;
+  }
+  .patch{
+    position:relative;
+    width:56px; height:56px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #3a2018 0 55%, #1a0d09 100%);
+    border:3px solid var(--outline);
+    box-shadow:0 0 10px rgba(255,110,30,.35) inset;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    margin-bottom:6px;
+    transition:transform .15s ease;
+  }
+  .sprite-stack{
+    position:relative;
+    width:32px; height:36px;
+    margin-bottom:2px;
+    animation:bob 0.9s ease-in-out infinite;
+    animation-delay:var(--d, 0s);
+  }
+  .sprite{
+    position:absolute; top:0; left:0;
+    display:grid;
+    grid-template-columns:repeat(8, 4px);
+    grid-template-rows:repeat(9, 4px);
+  }
+  .sprite div{ width:4px; height:4px; }
+  .sprite.a{ animation:frameA 0.9s steps(1) infinite; animation-delay:var(--d, 0s); }
+  .sprite.b{ animation:frameB 0.9s steps(1) infinite; animation-delay:var(--d, 0s); }
+  @keyframes frameA{ 0%,49%{opacity:1;} 50%,100%{opacity:0;} }
+  @keyframes frameB{ 0%,49%{opacity:0;} 50%,100%{opacity:1;} }
+  @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-3px);} }
+
+  .item-badge{
+    position:absolute;
+    top:-6px; right:-2px;
+    font-size:0.78rem;
+    background:var(--panel);
+    border:2px solid var(--outline);
+    border-radius:50%;
+    width:20px; height:20px;
+    display:flex; align-items:center; justify-content:center;
+    z-index:2;
+  }
+  .npc .name{ font-size:0.68rem; font-weight:700; line-height:1.35; }
+  .npc .status{
+    font-weight:900;
+    font-size:0.56rem; color:var(--ember-dim); margin-top:3px;
+  }
+  .npc.pending .patch{ filter:grayscale(0.7); opacity:0.55; box-shadow:none; }
+  .npc.pending .sprite-stack{ animation:none; }
+  .npc.pending .sprite.a,.npc.pending .sprite.b{ animation:none; }
+  .npc.pending .sprite.b{ opacity:0; }
+
+  .tip{
+    position:absolute;
+    bottom:calc(100% + 4px);
+    left:50%;
+    transform:translateX(-50%);
+    width:190px;
+    background:#0d0403;
+    color:#f3ddc4;
+    border:1px solid var(--ember-dim);
+    font-size:0.7rem;
+    line-height:1.5;
+    padding:8px 10px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .12s ease;
+    z-index:5;
+    text-align:left;
+  }
+  .npc:hover .tip, .npc:focus-visible .tip{ opacity:1; }
+  .npc:hover .patch, .npc:focus-visible .patch{ transform:translateY(-3px); }
+
+  footer{
+    text-align:center;
+    color:#c9a98f;
+    font-size:0.76rem;
+    padding:26px 20px 0;
+    line-height:1.7;
+    position:relative; z-index:2;
+  }
+  footer code{
+    background:var(--ash); color:var(--panel-text);
+    border:1px solid var(--ember-dim); padding:1px 6px;
+  }
+</style>
+</head>
+<body>
+
+<svg id="floorflames" viewBox="0 0 300 70" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M0,70 C10,40 20,15 30,45 C40,70 50,30 60,10 C70,-5 80,25 90,50 C100,70 110,40 120,20 C130,0 140,30 150,55 C160,70 170,45 180,25 C190,5 200,35 210,55 C220,70 230,50 240,30 C250,10 260,40 270,60 C280,70 290,55 300,60 L300,70 Z" fill="#5a1508"/>
+</svg>
+
+<div class="scene">
+  <span class="deco" style="top:2px; left:0;">🔥</span>
+  <span class="deco" style="top:6px; right:0;">🔥</span>
+  <span class="deco" style="top:130px; left:-4px; font-size:1.3rem;">💀</span>
+  <span class="deco" style="top:150px; right:6px; font-size:1.3rem;">⛓️</span>
+  <span class="deco" style="bottom:40px; left:-6px;">👻</span>
+  <span class="deco" style="bottom:20px; right:-4px;">🔥</span>
+
+  <header>
+    <h1>원무팀 지옥도</h1>
+    <p>업무가 지옥 같아서, 아예 지옥으로 만들었어요.<br>캐릭터를 클릭하면 그 도구로 이동합니다.</p>
+    <input id="search" type="text" placeholder="도구 이름으로 찾기...">
+  </header>
+
+  <div id="center-ornament">🔥👹🔥<span>염라대왕도 두 손 든 업무량</span></div>
+
+  <main id="map"></main>
+
+  <footer>
+    회색 망자는 아직 링크가 없는 도구예요.<br>
+    파일 안 <code>CONFIG</code>에서 <code>url</code> 값만 채우면 바로 저승에서 승천(?)합니다.
+    <div style="margin-top:18px; opacity:.7; font-size:0.68rem;">제작 · 영선</div>
+    <div style="margin-top:6px;"><a href="admin.html" style="color:#c9a98f; font-size:0.68rem;">관리자 페이지 →</a></div>
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — 여기만 수정하면 지도가 바뀝니다.
+   url이 빈 문자열("")이면 회색 망자(준비중)로 표시됩니다.
+   ============================================================ */
+/* ============================================================
+   배포 후 이 값을 Apps Script 웹 앱 URL로 바꿔주세요 (Code.gs 참고)
+   ============================================================ */
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCtH6IPuuBwaYtDCvzby4fCdUwN4xwhcg282JTL3U6tvauvBJmEg0boxmlHyQ-rd3yGA/exec";
+
+/* 마을(섹터) 메타 정보 — 마을 자체를 추가/변경할 때만 여기를 수정하면 됩니다.
+   각 마을 안의 도구 "명단"은 이제 관리자 페이지에서 추가/삭제하며,
+   Google Sheets에서 실시간으로 불러옵니다. */
+const VILLAGE_META = [
+  { id: "wonmu", name: "발설지옥 · 원무 마을", sub: "말이 너무 많아 혀가 닳는 지옥", cloth: "#8a2a1f", hair: "#ff7a2e", bg: "flame" },
+  { id: "billing", name: "도산지옥 · 비급여·청구 마을", sub: "규정의 칼날 위를 걷는 지옥", cloth: "#5a6b78", hair: "#c9d3d8", bg: "blades" },
+  { id: "stats", name: "거해지옥 · 통계·분석 마을", sub: "매달 반복되는 집계에 톱질당하는 지옥", cloth: "#7a5a2f", hair: "#e0c07a", bg: "saw" },
+  { id: "finance", name: "화탕지옥 · 개인 자산 마을", sub: "널뛰는 시장에 속이 끓는 지옥", cloth: "#b23a1f", hair: "#ffb26b", bg: "cauldron" }
+];
+
+/* 백엔드 연결 전이거나 fetch 실패 시 보여줄 기본 명단(폴백) */
+const FALLBACK_TOOLS = [
+  { village: "wonmu", name: "입원 업무 현황", emoji: "🏥", url: "https://real4goon.github.io/admission/", desc: "KIOSK 업로드 기반 입원 워크로드 EMR" },
+  { village: "wonmu", name: "VIP 관리", emoji: "👑", url: "https://real4goon.github.io/hl-vip/", desc: "VIP 등급·일정·공지 통합 관리" },
+  { village: "wonmu", name: "원무 지식창고", emoji: "🔍", url: "https://real4goon.github.io/wonmu-search/", desc: "원무팀 업무 지식 검색" }
+];
+
+const CONFIG = VILLAGE_META.map(v => ({ ...v, tools: [] }));
+
+/* ---------- 조선시대 복식 모티프 픽셀 캐릭터 3종 (특정 인물/작품 모작 아님) ----------
+   갓쓴 선비(gat) / 노비·일꾼(servant) / 장군(general) — 마을 안에서 번갈아 등장 */
+const TOP = {
+  gat:      ["OOOOOOOO", "..OOOO.."],
+  servant:  ["..OOOO..", ".OHHHHO."],
+  general:  ["..O##O..", "OOOOOOOO"]
+};
+const REST_A = [".OSSSSO.",".OSOOSO.","..OSSO..",".OCCCCO.","OCCCCCCO",".OC..CO.",".OO..OO."];
+const REST_B = [".OSSSSO.",".OSOOSO.","..OSSO..",".OCCCCO.","OCCCCCCO",".O.CC.O.","OO....OO"];
+const ARCHETYPES = ["gat","servant","general"];
+
+function spriteHTML(rows, colorMap){
+  return rows.map(row =>
+    [...row].map(ch => `<div style="background:${colorMap[ch] || 'transparent'}"></div>`).join("")
+  ).join("");
+}
+function buildFrames(archetype, colorMap){
+  const top = TOP[archetype];
+  return {
+    a: spriteHTML([...top, ...REST_A], colorMap),
+    b: spriteHTML([...top, ...REST_B], colorMap)
+  };
+}
+
+/* ---------- 마을별 배경 연출: 은은한 글로우 + 테마 아이콘(움직임 포함) ---------- */
+const DECOR = {
+  flame:    { icon: "🔥", motion: "flicker" },
+  blades:   { icon: "🗡️", motion: "sway" },
+  saw:      { icon: "🪚", motion: "spin" },
+  cauldron: { icon: "♨️", motion: "simmer" }
+};
+
+const map = document.getElementById("map");
+
+function render(filter = "") {
+  map.innerHTML = "";
+  const q = filter.trim().toLowerCase();
+
+  CONFIG.forEach(village => {
+    const filteredTools = village.tools.filter(t =>
+      !q || t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q)
+    );
+    if (q && filteredTools.length === 0) return;
+
+    const colorMap = { O:"#150505", H:village.hair, S:"#c9b39f", C:village.cloth, "#":"#d1352a" };
+    const glowVar = getComputedStyle(document.documentElement).getPropertyValue(`--${village.id}-glow`).trim() || "#ffffff";
+
+    const section = document.createElement("section");
+    section.className = `village ${village.id}`;
+    const decor = DECOR[village.bg] || { icon: "🔥", motion: "flicker" };
+    section.innerHTML = `
+      <div class="village-glow">
+        <div class="blob" style="background:${glowVar}; left:-70px; top:-70px;"></div>
+        <div class="blob" style="background:${glowVar}; right:-80px; bottom:-60px; animation-delay:1.4s;"></div>
+        <span class="theme-icon ${decor.motion}">${decor.icon}</span>
+      </div>
+      <div class="village-content">
+        <div class="sign">${village.name}</div>
+        <div class="village-sub">${village.sub}</div>
+        <div class="spikes"></div>
+        <div class="npc-grid"></div>
+      </div>
+    `;
+    const grid = section.querySelector(".npc-grid");
+
+    filteredTools.forEach((tool, i) => {
+      const hasUrl = !!tool.url;
+      const archetype = ARCHETYPES[i % ARCHETYPES.length];
+      const frames = buildFrames(archetype, colorMap);
+      const el = document.createElement(hasUrl ? "a" : "div");
+      el.className = "npc" + (hasUrl ? "" : " pending");
+      if (hasUrl) { el.href = tool.url; el.target = "_blank"; el.rel = "noopener"; }
+      el.tabIndex = 0;
+      const delay = (i * 0.13).toFixed(2) + "s";
+      el.innerHTML = `
+        <div class="patch">
+          <div class="sprite-stack" style="--d:${delay}">
+            <div class="sprite a" style="--d:${delay}">${frames.a}</div>
+            <div class="sprite b" style="--d:${delay}">${frames.b}</div>
+          </div>
+          <span class="item-badge">${tool.emoji}</span>
+        </div>
+        <span class="name">${tool.name}</span>
+        ${hasUrl ? "" : '<span class="status">준비중</span>'}
+        <span class="tip">${tool.desc}${hasUrl ? "" : " · 링크 미등록"}</span>
+      `;
+      grid.appendChild(el);
+    });
+
+    map.appendChild(section);
+  });
+}
+
+document.getElementById("search").addEventListener("input", e => render(e.target.value));
+
+function applyTools(toolRows) {
+  CONFIG.forEach(v => (v.tools = []));
+  toolRows.forEach(t => {
+    const v = CONFIG.find(v => v.id === t.village);
+    if (v) v.tools.push({ name: t.name, emoji: t.emoji, url: t.url, desc: t.desc });
+  });
+}
+
+async function loadData() {
+  try {
+    const res = await fetch(SCRIPT_URL + "?action=getData");
+    const data = await res.json();
+    if (data.ok && data.tools) {
+      applyTools(data.tools);
+    } else {
+      applyTools(FALLBACK_TOOLS);
+    }
+  } catch (err) {
+    applyTools(FALLBACK_TOOLS);
+  }
+  render();
+}
+
+loadData();
+
+/* 떠오르는 불씨 파티클 */
+const emberLayer = document.body;
+for (let i = 0; i < 18; i++) {
+  const e = document.createElement("span");
+  e.className = "ember-particle";
+  e.style.left = Math.random() * 100 + "vw";
+  e.style.setProperty("--drift", (Math.random()*40-20).toFixed(0) + "px");
+  e.style.animationDuration = (6 + Math.random()*6).toFixed(1) + "s";
+  e.style.animationDelay = (Math.random()*8).toFixed(1) + "s";
+  emberLayer.appendChild(e);
+}
+</script>
+
+</body>
+</html>

@@ -140,6 +140,31 @@
 /* index.html 과 반드시 동일한 값으로 맞춰주세요 */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCtH6IPuuBwaYtDCvzby4fCdUwN4xwhcg282JTL3U6tvauvBJmEg0boxmlHyQ-rd3yGA/exec";
 const VILLAGE_LIMIT = 8;
+const CLIENT_ID_KEY = "gotohell-admin-client-id";
+const MAIN_CACHE_KEY = "gotohell-tools-v2";
+const clientId = (() => {
+  try {
+    let id = localStorage.getItem(CLIENT_ID_KEY);
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+      localStorage.setItem(CLIENT_ID_KEY, id);
+    }
+    return id;
+  } catch (_) {
+    return "browser";
+  }
+})();
+
+function invalidateMainCache(){
+  try { localStorage.removeItem(MAIN_CACHE_KEY); } catch (_) {}
+}
+
+function isValidHttpUrl(value){
+  try {
+    const u = new URL(String(value || "").trim());
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch (_) { return false; }
+}
 
 async function fetchJSON(url, options, retries = 1){
   for (let attempt = 0; attempt <= retries; attempt++){
@@ -165,6 +190,12 @@ let pin = "";
 let currentVillage = VILLAGES[0].id;
 let allTools = [];
 let verifiedPin = "";
+
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  }[ch]));
+}
 
 const dots = document.querySelectorAll("#dots span");
 function updateDots(){
@@ -192,7 +223,7 @@ async function checkPin(){
   try {
     const data = await fetchJSON(SCRIPT_URL, {
       method: "POST",
-      body: JSON.stringify({ action: "verifyPin", pin })
+      body: JSON.stringify({ action: "verifyPin", pin, clientId })
     }, 1);
     if (data.ok) {
       verifiedPin = pin;
@@ -253,8 +284,8 @@ function renderList(){
     row.className = "row";
     row.innerHTML = `
       <div class="info">
-        <span class="n">${t.emoji || "🔥"} ${t.name}</span>
-        <span class="u">${t.url || "(링크 없음)"}</span>
+        <span class="n">${escapeHTML(t.emoji || "🔥")} ${escapeHTML(t.name)}</span>
+        <span class="u">${escapeHTML(t.url || "(링크 없음)")}</span>
       </div>
       <button class="del">삭제</button>
     `;
@@ -268,9 +299,10 @@ async function deleteTool(id, name){
   try {
     const data = await fetchJSON(SCRIPT_URL, {
       method: "POST",
-      body: JSON.stringify({ action: "deleteTool", pin: verifiedPin, id })
+      body: JSON.stringify({ action: "deleteTool", pin: verifiedPin, id, clientId })
     }, 1);
     if (data.ok) {
+      invalidateMainCache();
       await loadTools();
     } else {
       alert(data.error || "삭제 실패");
@@ -299,11 +331,12 @@ document.getElementById("addBtn").addEventListener("click", async () => {
 
   if (!name){ msg.textContent = "이름을 입력해주세요."; msg.className = "err"; return; }
 
-  const payload = { action: "addTool", pin: verifiedPin, village: currentVillage, name, emoji, desc };
+  const payload = { action: "addTool", pin: verifiedPin, clientId, village: currentVillage, name, emoji, desc };
 
   if (mode === "url") {
     const url = document.getElementById("fUrl").value.trim();
     if (!url){ msg.textContent = "링크를 입력해주세요."; msg.className = "err"; return; }
+    if (!isValidHttpUrl(url)){ msg.textContent = "주소는 http:// 또는 https:// 형식만 사용할 수 있습니다."; msg.className = "err"; return; }
     payload.url = url;
     await submitTool(payload, msg);
   } else {
@@ -324,6 +357,7 @@ async function submitTool(payload, msg){
   try {
     const data = await fetchJSON(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }, 1);
     if (data.ok) {
+      invalidateMainCache();
       msg.textContent = "추가됐어요!";
       msg.className = "ok";
       document.getElementById("fName").value = "";
@@ -363,7 +397,7 @@ document.getElementById("pinBtn").addEventListener("click", async () => {
   try {
     const data = await fetchJSON(SCRIPT_URL, {
       method: "POST",
-      body: JSON.stringify({ action: "changePin", pin: verifiedPin, newPin })
+      body: JSON.stringify({ action: "changePin", pin: verifiedPin, newPin, clientId })
     }, 1);
     if (data.ok) {
       verifiedPin = newPin; // 이 세션에서는 계속 새 PIN으로 요청하도록 갱신

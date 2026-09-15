@@ -208,7 +208,7 @@ async function checkPin(){
       updateDots();
     }
   } catch(err) {
-    document.getElementById("gateError").textContent = "네트워크 오류, 다시 시도해주세요.";
+    document.getElementById("gateError").textContent = "오류: " + (err && err.message ? err.message : err);
     pin = "";
     updateDots();
   }

@@ -69,8 +69,6 @@
     z-index:2;
   }
 
-  .deco{ position:absolute; font-size:1.9rem; filter:drop-shadow(0 0 6px rgba(255,110,30,.6)); pointer-events:none; user-select:none; opacity:.9; }
-
   header{ text-align:center; margin-bottom:26px; position:relative; z-index:2; }
   header h1{
     font-family:'Noto Sans KR', sans-serif;
@@ -246,7 +244,7 @@
   }
   .patch{
     position:relative;
-    width:56px; height:56px;
+    width:64px; height:64px;
     border-radius:50%;
     background:radial-gradient(circle at 35% 30%, #3a2018 0 55%, #1a0d09 100%);
     border:3px solid var(--outline);
@@ -259,7 +257,7 @@
   }
   .sprite-stack{
     position:relative;
-    width:32px; height:36px;
+    width:40px; height:45px;
     margin-bottom:2px;
     animation:bob 0.9s ease-in-out infinite;
     animation-delay:var(--d, 0s);
@@ -267,14 +265,16 @@
   .sprite{
     position:absolute; top:0; left:0;
     display:grid;
-    grid-template-columns:repeat(8, 4px);
-    grid-template-rows:repeat(9, 4px);
+    grid-template-columns:repeat(8, 5px);
+    grid-template-rows:repeat(9, 5px);
   }
-  .sprite div{ width:4px; height:4px; }
+  .sprite div{ width:5px; height:5px; }
   .sprite.a{ animation:frameA 0.9s steps(1) infinite; animation-delay:var(--d, 0s); }
   .sprite.b{ animation:frameB 0.9s steps(1) infinite; animation-delay:var(--d, 0s); }
   @keyframes frameA{ 0%,49%{opacity:1;} 50%,100%{opacity:0;} }
   @keyframes frameB{ 0%,49%{opacity:0;} 50%,100%{opacity:1;} }
+  @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-3px);} }
+  .sprite-stack svg{ width:100%; height:100%; display:block; }
   @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-3px);} }
 
   .item-badge{
@@ -340,20 +340,13 @@
 </svg>
 
 <div class="scene">
-  <span class="deco" style="top:2px; left:0;">🔥</span>
-  <span class="deco" style="top:6px; right:0;">🔥</span>
-  <span class="deco" style="top:130px; left:-4px; font-size:1.3rem;">💀</span>
-  <span class="deco" style="top:150px; right:6px; font-size:1.3rem;">⛓️</span>
-  <span class="deco" style="bottom:40px; left:-6px;">👻</span>
-  <span class="deco" style="bottom:20px; right:-4px;">🔥</span>
-
   <header>
     <h1>원무팀 지옥도</h1>
-    <p>업무가 지옥 같아서, 아예 지옥으로 만들었어요.<br>캐릭터를 클릭하면 그 도구로 이동합니다.</p>
+    <p>캐릭터를 클릭하면 그 도구로 이동합니다.</p>
     <input id="search" type="text" placeholder="도구 이름으로 찾기...">
   </header>
 
-  <div id="center-ornament">🔥👹🔥<span>염라대왕도 두 손 든 업무량</span></div>
+  <div id="center-ornament">🔥👹🔥<span>염라대왕도 두 손을 들었습니다.</span></div>
 
   <main id="map"></main>
 
@@ -394,27 +387,42 @@ const FALLBACK_TOOLS = [
 
 const CONFIG = VILLAGE_META.map(v => ({ ...v, tools: [] }));
 
-/* ---------- 조선시대 복식 모티프 픽셀 캐릭터 3종 (특정 인물/작품 모작 아님) ----------
-   갓쓴 선비(gat) / 노비·일꾼(servant) / 장군(general) — 마을 안에서 번갈아 등장 */
-const TOP = {
-  gat:      ["OOOOOOOO", "..OOOO.."],
-  servant:  ["..OOOO..", ".OHHHHO."],
-  general:  ["..O##O..", "OOOOOOOO"]
+/* ---------- 조선시대 신분별 8비트 픽셀 캐릭터 4종 (특정 인물/작품 모작 아님) ----------
+   사또(sado) / 왕(king) / 신하(sinha) / 무당(mudang) — 마을 안에서 번갈아 등장
+   O=외곽선 S=피부 W=흰옷깃 H=모자/머리띠 C=옷 R=붉은장식 B=파란장식 .=투명 */
+const ARCHETYPE_DATA = {
+  sado: {
+    top: ["..HHHH..", ".HHHHHH.", "HHHHHHHH", ".OSSSSO.", ".OSOOSO.", "..OWWO..", "OCCCCCCO"],
+    H: "#1c1c1c", C: "#2c3e63"
+  },
+  king: {
+    top: ["..HHHH..", ".HHHHHH.", "HHHHHHHH", ".OSSSSO.", ".OSOOSO.", "..OWWO..", "OCCCCCCO"],
+    H: "#151515", C: "#c23b32"
+  },
+  sinha: {
+    top: ["..HHHH..", ".HHHHHH.", "HHHHHHHH", ".OSSSSO.", ".OSOOSO.", "..OWWO..", "OCCCCCCO"],
+    H: "#1c1c1c", C: "#3c6e5a"
+  },
+  mudang: {
+    top: ["..HHHH..", ".HHHHHH.", "HHHHHHHB", ".OSSSSO.", ".OSOOSO.", "..OSSO..", "RCCCCCCB"],
+    H: "#c9302c", C: "#d1a92c"
+  }
 };
-const REST_A = [".OSSSSO.",".OSOOSO.","..OSSO..",".OCCCCO.","OCCCCCCO",".OC..CO.",".OO..OO."];
-const REST_B = [".OSSSSO.",".OSOOSO.","..OSSO..",".OCCCCO.","OCCCCCCO",".O.CC.O.","OO....OO"];
-const ARCHETYPES = ["gat","servant","general"];
+const LEG_A = [".OC..CO.", ".OO..OO."];
+const LEG_B = [".O.CC.O.", "OO....OO"];
+const ARCHETYPES = ["sado", "king", "sinha", "mudang"];
 
 function spriteHTML(rows, colorMap){
   return rows.map(row =>
     [...row].map(ch => `<div style="background:${colorMap[ch] || 'transparent'}"></div>`).join("")
   ).join("");
 }
-function buildFrames(archetype, colorMap){
-  const top = TOP[archetype];
+function buildFrames(archetype){
+  const a = ARCHETYPE_DATA[archetype];
+  const colorMap = { O:"#150505", S:"#c9b39f", W:"#f1e2c4", H:a.H, C:a.C, R:"#a52a2a", B:"#1e3f8f" };
   return {
-    a: spriteHTML([...top, ...REST_A], colorMap),
-    b: spriteHTML([...top, ...REST_B], colorMap)
+    a: spriteHTML([...a.top, ...LEG_A], colorMap),
+    b: spriteHTML([...a.top, ...LEG_B], colorMap)
   };
 }
 
@@ -438,7 +446,6 @@ function render(filter = "") {
     );
     if (q && filteredTools.length === 0) return;
 
-    const colorMap = { O:"#150505", H:village.hair, S:"#c9b39f", C:village.cloth, "#":"#d1352a" };
     const glowVar = getComputedStyle(document.documentElement).getPropertyValue(`--${village.id}-glow`).trim() || "#ffffff";
 
     const section = document.createElement("section");
@@ -462,12 +469,12 @@ function render(filter = "") {
     filteredTools.forEach((tool, i) => {
       const hasUrl = !!tool.url;
       const archetype = ARCHETYPES[i % ARCHETYPES.length];
-      const frames = buildFrames(archetype, colorMap);
       const el = document.createElement(hasUrl ? "a" : "div");
       el.className = "npc" + (hasUrl ? "" : " pending");
       if (hasUrl) { el.href = tool.url; el.target = "_blank"; el.rel = "noopener"; }
       el.tabIndex = 0;
       const delay = (i * 0.13).toFixed(2) + "s";
+      const frames = buildFrames(archetype);
       el.innerHTML = `
         <div class="patch">
           <div class="sprite-stack" style="--d:${delay}">

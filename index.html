@@ -231,6 +231,13 @@
     gap:16px;
     padding:16px;
   }
+  .npc-slot{
+    position:relative;
+    width:96px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
   .npc{
     position:relative;
     width:96px;
@@ -331,6 +338,27 @@
   }
   .npc:hover .tip, .npc:focus-visible .tip{ opacity:1; }
   .npc:hover .patch, .npc:focus-visible .patch{ transform:translateY(-3px); }
+  .npc-download{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    margin-top:4px;
+    padding:2px 7px;
+    border:1px solid rgba(224,192,122,.48);
+    border-radius:999px;
+    color:#e0c07a;
+    background:rgba(13,4,3,.55);
+    font-size:.58rem;
+    font-weight:700;
+    line-height:1.4;
+    text-decoration:none;
+    white-space:nowrap;
+  }
+  .npc-download:hover, .npc-download:focus-visible{
+    color:#fff2d2;
+    border-color:#e0c07a;
+    background:rgba(90,45,20,.65);
+  }
 
   #data-status{
     display:none;
@@ -515,7 +543,11 @@ function render(filter = "") {
 
     filteredTools.forEach((tool, i) => {
       const hasUrl = !!tool.url;
+      const hasFile = !!tool.hasFile;
       const archetype = ARCHETYPES[i % ARCHETYPES.length];
+      const slot = document.createElement("div");
+      slot.className = "npc-slot";
+
       const el = document.createElement(hasUrl ? "a" : "div");
       el.className = "npc" + (hasUrl ? "" : " pending");
       if (hasUrl) { el.href = tool.url; el.target = "_blank"; el.rel = "noopener"; }
@@ -534,7 +566,19 @@ function render(filter = "") {
         ${hasUrl ? "" : '<span class="status">준비중</span>'}
         <span class="tip">${escapeHTML(tool.desc)}${hasUrl ? "" : " · 링크 미등록"}</span>
       `;
-      grid.appendChild(el);
+      slot.appendChild(el);
+
+      if (hasFile && tool.id) {
+        const dl = document.createElement("a");
+        dl.className = "npc-download";
+        dl.href = SCRIPT_URL + "?download=" + encodeURIComponent(tool.id);
+        dl.target = "_blank";
+        dl.rel = "noopener";
+        dl.textContent = "⬇ HTML";
+        dl.title = `${tool.name} 원본 HTML 다운로드`;
+        slot.appendChild(dl);
+      }
+      grid.appendChild(slot);
     });
 
     map.appendChild(section);
@@ -564,10 +608,12 @@ function applyTools(toolRows) {
     const v = CONFIG.find(v => v.id === String(t.village || ""));
     if (!v) return;
     v.tools.push({
+      id: cleanText(t.id, 80),
       name: cleanText(t.name, 80) || "이름 없는 도구",
       emoji: cleanText(t.emoji, 8) || "🔥",
       url: normalizeHttpUrl(t.url),
-      desc: cleanText(t.desc, 240)
+      desc: cleanText(t.desc, 240),
+      hasFile: !!t.fileId
     });
   });
 }

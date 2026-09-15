@@ -83,7 +83,7 @@
   .row .info .n{ font-weight:700; }
   .row .info .u{ display:block; font-size:0.72rem; opacity:.6; word-break:break-all; }
   .actions{ display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; flex-shrink:0; max-width:230px; }
-  .edit, .del, .move, .file-del{
+  .edit, .del, .move, .file-del, .file-download{
     color:#fff; border:none; border-radius:6px;
     padding:6px 9px; font-size:0.72rem; cursor:pointer;
   }
@@ -91,12 +91,13 @@
   .del{ background:#6b2110; }
   .move{ background:#3f4c57; min-width:31px; }
   .move:disabled{ opacity:.28; cursor:default; }
+  .file-download{ background:#345d55; }
   .file-del{ background:#714224; }
   .list-help{ margin:-5px 0 10px; opacity:.62; font-size:0.72rem; line-height:1.5; }
   @media (max-width:560px){
     .row{ align-items:flex-start; }
     .actions{ max-width:145px; }
-    .edit, .del, .move, .file-del{ padding:6px 7px; font-size:0.68rem; }
+    .edit, .del, .move, .file-del, .file-download{ padding:6px 7px; font-size:0.68rem; }
   }
 
   label{ display:block; font-size:0.8rem; font-weight:700; margin:10px 0 4px; }
@@ -388,7 +389,7 @@ function renderList(){
         <button class="move up" type="button" title="위로 이동" ${index === 0 ? "disabled" : ""}>↑</button>
         <button class="move down" type="button" title="아래로 이동" ${index === items.length - 1 ? "disabled" : ""}>↓</button>
         <button class="edit" type="button">수정</button>
-        ${t.fileId ? '<button class="file-del" type="button">파일삭제</button>' : ''}
+        ${t.fileId ? '<button class="file-download" type="button">다운로드</button><button class="file-del" type="button">파일삭제</button>' : ''}
         <button class="del" type="button">삭제</button>
       </div>
     `;
@@ -397,6 +398,8 @@ function renderList(){
     if (up) up.onclick = () => moveTool(t.id, "up");
     if (down) down.onclick = () => moveTool(t.id, "down");
     row.querySelector(".edit").onclick = () => startEdit(t);
+    const fileDownload = row.querySelector(".file-download");
+    if (fileDownload) fileDownload.onclick = () => downloadAttachment(t.id);
     const fileDel = row.querySelector(".file-del");
     if (fileDel) fileDel.onclick = () => deleteAttachment(t.id, t.name);
     row.querySelector(".del").onclick = () => deleteTool(t.id, t.name);
@@ -425,6 +428,11 @@ async function moveTool(id, direction){
   } catch(err){
     alert("순서 변경 중 네트워크 오류가 발생했습니다.");
   }
+}
+
+function downloadAttachment(id){
+  const url = SCRIPT_URL + "?download=" + encodeURIComponent(id);
+  window.open(url, "_blank", "noopener");
 }
 
 async function deleteAttachment(id, name){

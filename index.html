@@ -275,7 +275,6 @@
   @keyframes frameB{ 0%,49%{opacity:0;} 50%,100%{opacity:1;} }
   @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-3px);} }
   .sprite-stack svg{ width:100%; height:100%; display:block; }
-  @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-3px);} }
 
   .item-badge{
     position:absolute;
@@ -319,6 +318,20 @@
   .npc:hover .tip, .npc:focus-visible .tip{ opacity:1; }
   .npc:hover .patch, .npc:focus-visible .patch{ transform:translateY(-3px); }
 
+  #data-status{
+    display:none;
+    width:min(620px, 94%);
+    margin:0 auto 24px;
+    padding:8px 12px;
+    border:1px solid rgba(255,122,46,.45);
+    background:rgba(22,13,11,.82);
+    color:#d8b9a2;
+    font-size:0.72rem;
+    line-height:1.5;
+    text-align:center;
+  }
+  #data-status.warn{ display:block; color:#ffb08c; }
+
   footer{
     text-align:center;
     color:#c9a98f;
@@ -348,6 +361,7 @@
 
   <div id="center-ornament">🔥👹🔥<span>염라대왕도 두 손을 들었습니다.</span></div>
 
+  <div id="data-status" role="status" aria-live="polite"></div>
   <main id="map"></main>
 
   <footer>
@@ -367,6 +381,9 @@
    배포 후 이 값을 Apps Script 웹 앱 URL로 바꿔주세요 (Code.gs 참고)
    ============================================================ */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCtH6IPuuBwaYtDCvzby4fCdUwN4xwhcg282JTL3U6tvauvBJmEg0boxmlHyQ-rd3yGA/exec";
+const LOCAL_CACHE_KEY = "gotohell-tools-v2";
+const LOCAL_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7일: 오래돼도 먼저 표시 후 즉시 갱신
+const FETCH_TIMEOUT_MS = 8000;
 
 /* 마을(섹터) 메타 정보 — 마을 자체를 추가/변경할 때만 여기를 수정하면 됩니다.
    각 마을 안의 도구 "명단"은 이제 관리자 페이지에서 추가/삭제하며,
@@ -436,6 +453,12 @@ const DECOR = {
 
 const map = document.getElementById("map");
 
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  }[ch]));
+}
+
 function render(filter = "") {
   map.innerHTML = "";
   const q = filter.trim().toLowerCase();
@@ -481,11 +504,11 @@ function render(filter = "") {
             <div class="sprite a" style="--d:${delay}">${frames.a}</div>
             <div class="sprite b" style="--d:${delay}">${frames.b}</div>
           </div>
-          <span class="item-badge">${tool.emoji}</span>
+          <span class="item-badge">${escapeHTML(tool.emoji)}</span>
         </div>
-        <span class="name">${tool.name}</span>
+        <span class="name">${escapeHTML(tool.name)}</span>
         ${hasUrl ? "" : '<span class="status">준비중</span>'}
-        <span class="tip">${tool.desc}${hasUrl ? "" : " · 링크 미등록"}</span>
+        <span class="tip">${escapeHTML(tool.desc)}${hasUrl ? "" : " · 링크 미등록"}</span>
       `;
       grid.appendChild(el);
     });
@@ -496,41 +519,107 @@ function render(filter = "") {
 
 document.getElementById("search").addEventListener("input", e => render(e.target.value));
 
+function normalizeHttpUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const u = new URL(raw);
+    return (u.protocol === "https:" || u.protocol === "http:") ? u.href : "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function cleanText(value, maxLen) {
+  return String(value ?? "").replace(/[\u0000-\u001F\u007F]/g, " ").trim().slice(0, maxLen);
+}
+
 function applyTools(toolRows) {
   CONFIG.forEach(v => (v.tools = []));
-  toolRows.forEach(t => {
-    const v = CONFIG.find(v => v.id === t.village);
-    if (v) v.tools.push({ name: t.name, emoji: t.emoji, url: t.url, desc: t.desc });
+  (Array.isArray(toolRows) ? toolRows : []).forEach(t => {
+    const v = CONFIG.find(v => v.id === String(t.village || ""));
+    if (!v) return;
+    v.tools.push({
+      name: cleanText(t.name, 80) || "이름 없는 도구",
+      emoji: cleanText(t.emoji, 8) || "🔥",
+      url: normalizeHttpUrl(t.url),
+      desc: cleanText(t.desc, 240)
+    });
   });
 }
 
-async function fetchJSON(url, retries = 1){
+function setDataStatus(message = "", isWarn = false) {
+  const el = document.getElementById("data-status");
+  el.textContent = message;
+  el.className = isWarn && message ? "warn" : "";
+}
+
+function readLocalTools() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(LOCAL_CACHE_KEY) || "null");
+    if (!cached || !Array.isArray(cached.tools) || !cached.savedAt) return null;
+    return { tools: cached.tools, age: Date.now() - Number(cached.savedAt) };
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveLocalTools(tools) {
+  try {
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ tools, savedAt: Date.now() }));
+  } catch (_) {}
+}
+
+async function fetchJSON(url, retries = 0, timeoutMs = FETCH_TIMEOUT_MS){
   for (let attempt = 0; attempt <= retries; attempt++){
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store", signal: controller.signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       return JSON.parse(text);
     } catch(err){
       if (attempt === retries) throw err;
-      await new Promise(r => setTimeout(r, 700));
+      await new Promise(r => setTimeout(r, 350));
+    } finally {
+      clearTimeout(timer);
     }
   }
 }
 
 async function loadData() {
-  const map = document.getElementById("map");
-  map.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; font-weight:700; opacity:.7;">🔥 저승에서 명단 불러오는 중...</div>';
-  try {
-    const data = await fetchJSON(SCRIPT_URL + "?action=getData", 1);
-    if (data.ok && data.tools) {
-      applyTools(data.tools);
-    } else {
-      applyTools(FALLBACK_TOOLS);
+  const cached = readLocalTools();
+  let hasUsableData = false;
+
+  // 재방문은 마지막 정상 명단을 즉시 표시한다. Apps Script 응답은 뒤에서 갱신한다.
+  if (cached && cached.tools.length) {
+    applyTools(cached.tools);
+    render();
+    hasUsableData = true;
+    if (cached.age > LOCAL_CACHE_MAX_AGE) {
+      setDataStatus("최근 저장된 명단을 먼저 표시했습니다. 최신 명단을 확인 중입니다…", true);
     }
-  } catch (err) {
+  } else {
     applyTools(FALLBACK_TOOLS);
+    render();
+    setDataStatus("최신 명단을 불러오는 중입니다…", false);
   }
-  render();
+
+  try {
+    const data = await fetchJSON(SCRIPT_URL + "?action=getData", 0);
+    if (!data.ok || !Array.isArray(data.tools)) throw new Error(data.error || "잘못된 응답");
+    applyTools(data.tools);
+    saveLocalTools(data.tools);
+    render(document.getElementById("search").value);
+    setDataStatus("");
+  } catch (err) {
+    if (hasUsableData) {
+      setDataStatus("⚠ 최신 명단 확인에 실패해 마지막 정상 명단을 표시하고 있습니다.", true);
+    } else {
+      setDataStatus("⚠ 실시간 명단을 불러오지 못해 기본 명단을 표시하고 있습니다.", true);
+    }
+  }
 }
 
 loadData();

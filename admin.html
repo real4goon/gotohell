@@ -100,6 +100,28 @@
     .edit, .del, .move, .file-del, .file-download{ padding:6px 7px; font-size:0.68rem; }
   }
 
+  .ornament-preview{
+    text-align:center;
+    font-size:2.15rem;
+    margin:4px 0 8px;
+    filter:drop-shadow(0 0 12px rgba(255,110,30,.55));
+  }
+  .ornament-help{ font-size:.74rem; opacity:.68; line-height:1.55; margin:4px 0 10px; }
+  .ornament-current{
+    margin-top:8px; padding:8px 10px; border:1px solid rgba(255,255,255,.08);
+    border-radius:7px; background:rgba(0,0,0,.12); font-size:.74rem; line-height:1.5; word-break:break-all;
+  }
+  .ornament-actions{ display:flex; gap:7px; margin-top:9px; flex-wrap:wrap; }
+  .ornament-actions button{
+    border:0; border-radius:6px; padding:7px 10px; color:#fff; font-family:inherit; font-size:.72rem; cursor:pointer;
+  }
+  #ornamentSaveBtn{ width:100%; margin-top:12px; padding:10px; border:0; border-radius:8px; background:var(--ember); color:#1c0805; font-weight:900; cursor:pointer; }
+  #ornamentDownloadBtn{ background:#345d55; }
+  #ornamentDeleteFileBtn{ background:#714224; }
+  #ornamentMsg{ font-size:.8rem; margin-top:8px; min-height:1.2em; }
+  #ornamentMsg.ok{ color:#8fd68a; }
+  #ornamentMsg.err{ color:#ff8a6a; }
+
   label{ display:block; font-size:0.8rem; font-weight:700; margin:10px 0 4px; }
   input[type=text], textarea{
     width:100%; padding:9px 10px; border:2px solid var(--ember-dim);
@@ -158,6 +180,33 @@
       <div id="list"></div>
     </div>
 
+    <div class="card" id="ornamentCard">
+      <strong>상단 악마(🔥👹🔥) 바로가기</strong>
+      <div class="ornament-preview">🔥👹🔥</div>
+      <div class="ornament-help">메인 화면의 악마를 클릭했을 때 열 동작을 설정합니다. 블로그 링크를 연결하거나, 첨부파일을 내려받게 할 수 있습니다.</div>
+      <div class="seg" id="ornamentModeSeg">
+        <label><input type="radio" name="ornamentMode" value="none" checked> 동작 없음</label>
+        <label><input type="radio" name="ornamentMode" value="url"> URL 열기</label>
+        <label><input type="radio" name="ornamentMode" value="file"> 파일 다운로드</label>
+      </div>
+      <div id="ornamentUrlField" style="display:none;">
+        <label>연결 주소</label>
+        <input type="text" id="ornamentUrl" placeholder="https://blog.naver.com/...">
+      </div>
+      <div id="ornamentFileField" style="display:none;">
+        <label>다운로드 파일 선택</label>
+        <input type="file" id="ornamentFile">
+        <div class="ornament-help">최대 5MB 권장. 새 파일을 선택하지 않으면 기존 첨부파일을 유지합니다.</div>
+      </div>
+      <div id="ornamentCurrent" class="ornament-current">현재 설정: 동작 없음</div>
+      <div class="ornament-actions">
+        <button id="ornamentDownloadBtn" type="button" style="display:none;">현재 파일 다운로드</button>
+        <button id="ornamentDeleteFileBtn" type="button" style="display:none;">첨부파일 삭제</button>
+      </div>
+      <button id="ornamentSaveBtn" type="button">상단 악마 설정 저장</button>
+      <div id="ornamentMsg"></div>
+    </div>
+
     <div class="card" id="toolFormCard">
       <strong id="formTitle">새 캐릭터 추가</strong>
       <label>이름</label>
@@ -207,7 +256,7 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCtH6IPuuBwaYtDCvzby4fCdUwN4xwhcg282JTL3U6tvauvBJmEg0boxmlHyQ-rd3yGA/exec";
 const VILLAGE_LIMIT = 8;
 const CLIENT_ID_KEY = "gotohell-admin-client-id";
-const MAIN_CACHE_KEY = "gotohell-tools-v2";
+const MAIN_CACHE_KEY = "gotohell-site-v3";
 const clientId = (() => {
   try {
     let id = localStorage.getItem(CLIENT_ID_KEY);
@@ -221,10 +270,12 @@ const clientId = (() => {
   }
 })();
 
-function saveMainCache(tools){
+let siteOrnament = { mode:"none", url:"", actionUrl:"", hasFile:false, fileName:"" };
+
+function saveMainCache(tools, ornament = siteOrnament){
   try {
     if (!Array.isArray(tools)) return;
-    localStorage.setItem(MAIN_CACHE_KEY, JSON.stringify({ tools, savedAt: Date.now() }));
+    localStorage.setItem(MAIN_CACHE_KEY, JSON.stringify({ tools, ornament, savedAt: Date.now() }));
   } catch (_) {}
 }
 
@@ -325,11 +376,13 @@ async function checkPin(){
     if (data.ok) {
       verifiedPin = pin;
       allTools = data.tools || [];
+      siteOrnament = data.ornament || { mode:"none", url:"", actionUrl:"", hasFile:false, fileName:"" };
       document.getElementById("gateError").textContent = "";
       document.getElementById("gate").style.display = "none";
       document.getElementById("admin").style.display = "block";
       buildTabs();
       renderList();
+      renderOrnamentForm();
     } else {
       document.getElementById("gateError").textContent = data.error || "PIN이 올바르지 않습니다.";
       pin = "";
@@ -359,7 +412,9 @@ async function loadTools(){
   try {
     const data = await fetchJSON(SCRIPT_URL + "?action=getData&_=" + Date.now(), undefined, 1);
     allTools = (data.ok && Array.isArray(data.tools)) ? data.tools : [];
-    if (allTools.length) saveMainCache(allTools);
+    if (data.ok && data.ornament) siteOrnament = data.ornament;
+    if (allTools.length) saveMainCache(allTools, siteOrnament);
+    renderOrnamentForm();
   } catch(err){
     // 네트워크 오류가 나도 현재 관리자 화면의 목록은 지우지 않는다.
   }
@@ -410,8 +465,10 @@ function renderList(){
 async function applyServerToolList(data){
   if (data && Array.isArray(data.tools)) {
     allTools = data.tools;
-    saveMainCache(allTools);
+    if (data.ornament) siteOrnament = data.ornament;
+    saveMainCache(allTools, siteOrnament);
     renderList();
+    renderOrnamentForm();
     return true;
   }
   return false;
@@ -449,6 +506,114 @@ async function deleteAttachment(id, name){
     alert("첨부파일 삭제 중 네트워크 오류가 발생했습니다.");
   }
 }
+
+function setOrnamentMode(mode){
+  const valid = ["none","url","file"].includes(mode) ? mode : "none";
+  const radio = document.querySelector(`input[name="ornamentMode"][value="${valid}"]`);
+  if (radio) radio.checked = true;
+  document.getElementById("ornamentUrlField").style.display = valid === "url" ? "block" : "none";
+  document.getElementById("ornamentFileField").style.display = valid === "file" ? "block" : "none";
+}
+
+function renderOrnamentForm(){
+  const o = siteOrnament || { mode:"none" };
+  setOrnamentMode(o.mode || "none");
+  document.getElementById("ornamentUrl").value = o.url || "";
+  const current = document.getElementById("ornamentCurrent");
+  const dl = document.getElementById("ornamentDownloadBtn");
+  const del = document.getElementById("ornamentDeleteFileBtn");
+  if (o.mode === "url" && o.url) {
+    current.textContent = `현재 설정: URL · ${o.url}`;
+  } else if (o.mode === "file" && o.hasFile) {
+    current.textContent = `현재 설정: 파일 다운로드 · ${o.fileName || "첨부파일"}`;
+  } else {
+    current.textContent = "현재 설정: 동작 없음";
+  }
+  const hasFile = !!o.hasFile;
+  dl.style.display = hasFile ? "inline-block" : "none";
+  del.style.display = hasFile ? "inline-block" : "none";
+}
+
+document.querySelectorAll('input[name="ornamentMode"]').forEach(r => {
+  r.addEventListener("change", () => setOrnamentMode(document.querySelector('input[name="ornamentMode"]:checked').value));
+});
+
+document.getElementById("ornamentDownloadBtn").addEventListener("click", () => {
+  const href = siteOrnament && siteOrnament.actionUrl;
+  if (href) window.open(href, "_blank", "noopener");
+});
+
+document.getElementById("ornamentDeleteFileBtn").addEventListener("click", async () => {
+  if (!siteOrnament?.hasFile) return;
+  if (!confirm(`상단 악마에 연결된 "${siteOrnament.fileName || "첨부파일"}"을 삭제할까요?`)) return;
+  const msg = document.getElementById("ornamentMsg");
+  msg.textContent = "삭제 중..."; msg.className = "";
+  try {
+    const data = await fetchJSON(SCRIPT_URL, {
+      method:"POST",
+      body:JSON.stringify({ action:"deleteOrnamentFile", pin:verifiedPin, clientId })
+    }, 1);
+    if (!data.ok) throw new Error(data.error || "삭제 실패");
+    if (Array.isArray(data.tools)) allTools = data.tools;
+    siteOrnament = data.ornament || { mode:"none", url:"", actionUrl:"", hasFile:false, fileName:"" };
+    saveMainCache(allTools, siteOrnament);
+    renderOrnamentForm();
+    msg.textContent = "첨부파일을 삭제했습니다."; msg.className = "ok";
+  } catch(err) {
+    msg.textContent = err?.message || "첨부파일 삭제 실패"; msg.className = "err";
+  }
+});
+
+document.getElementById("ornamentSaveBtn").addEventListener("click", async () => {
+  const msg = document.getElementById("ornamentMsg");
+  const mode = document.querySelector('input[name="ornamentMode"]:checked').value;
+  const payload = { action:"saveOrnament", pin:verifiedPin, clientId, mode };
+  msg.textContent = "저장 중..."; msg.className = "";
+
+  if (mode === "url") {
+    const url = document.getElementById("ornamentUrl").value.trim();
+    if (!isValidHttpUrl(url)) { msg.textContent = "올바른 http:// 또는 https:// 주소를 입력해주세요."; msg.className = "err"; return; }
+    payload.url = url;
+  }
+
+  const submit = async () => {
+    try {
+      const data = await fetchJSON(SCRIPT_URL, { method:"POST", body:JSON.stringify(payload) }, 1);
+      if (!data.ok) throw new Error(data.error || "저장 실패");
+      if (Array.isArray(data.tools)) allTools = data.tools;
+      siteOrnament = data.ornament || { mode:"none", url:"", actionUrl:"", hasFile:false, fileName:"" };
+      saveMainCache(allTools, siteOrnament);
+      document.getElementById("ornamentFile").value = "";
+      renderOrnamentForm();
+      msg.textContent = "상단 악마 설정을 저장했습니다. 메인 화면에 즉시 반영됩니다."; msg.className = "ok";
+    } catch(err) {
+      msg.textContent = err?.message || "저장 실패"; msg.className = "err";
+    }
+  };
+
+  if (mode === "file") {
+    const file = document.getElementById("ornamentFile").files[0];
+    if (!file) {
+      if (!siteOrnament?.hasFile) { msg.textContent = "다운로드할 파일을 선택해주세요."; msg.className = "err"; return; }
+      await submit();
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) { msg.textContent = "파일은 5MB 이하를 권장합니다. 현재 파일은 너무 큽니다."; msg.className = "err"; return; }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const result = String(reader.result || "");
+      const comma = result.indexOf(",");
+      payload.fileBase64 = comma >= 0 ? result.slice(comma + 1) : result;
+      payload.fileName = file.name || "attachment";
+      payload.fileMime = file.type || "application/octet-stream";
+      await submit();
+    };
+    reader.onerror = () => { msg.textContent = "파일을 읽지 못했습니다."; msg.className = "err"; };
+    reader.readAsDataURL(file);
+    return;
+  }
+  await submit();
+});
 
 function setMode(mode){
   const radio = document.querySelector(`input[name="mode"][value="${mode}"]`);
@@ -517,10 +682,10 @@ async function deleteTool(id, name){
     if (data.ok) {
       if (Array.isArray(data.tools)) {
         allTools = data.tools;
-        saveMainCache(allTools);
+        saveMainCache(allTools, siteOrnament);
       } else {
         allTools = allTools.filter(t => String(t.id) !== String(id));
-        saveMainCache(allTools);
+        saveMainCache(allTools, siteOrnament);
       }
       if (editingToolId === id) resetForm();
       renderList();
@@ -598,7 +763,7 @@ async function submitTool(payload, msg){
       const wasEdit = payload.action === "updateTool";
       if (Array.isArray(data.tools)) {
         allTools = data.tools;
-        saveMainCache(allTools);
+        saveMainCache(allTools, siteOrnament);
       }
       msg.textContent = wasEdit ? "수정됐어요! 메인 화면에도 즉시 반영됩니다." : "추가됐어요! 메인 화면에도 즉시 반영됩니다.";
       msg.className = "ok";

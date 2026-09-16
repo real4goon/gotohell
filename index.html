@@ -120,6 +120,32 @@
     color:#caa085;
     margin-top:6px;
   }
+  #center-ornament.clickable{
+    cursor:pointer;
+    transition:transform .16s ease, filter .16s ease;
+  }
+  #center-ornament.clickable:hover, #center-ornament.clickable:focus-visible{
+    transform:translateY(-2px) scale(1.025);
+    filter:drop-shadow(0 0 22px rgba(255,140,50,.95));
+    outline:none;
+  }
+  .ornament-badge{
+    position:absolute;
+    top:-2px;
+    left:calc(50% + 48px);
+    min-width:18px; height:18px;
+    padding:0 4px;
+    border:1px solid rgba(255,180,110,.45);
+    border-radius:999px;
+    background:rgba(22,6,5,.82);
+    color:#e7b177;
+    font-size:.58rem;
+    line-height:16px;
+    font-style:normal;
+    opacity:.78;
+    display:none;
+  }
+  #center-ornament.clickable .ornament-badge{ display:block; }
 
   main{
     position:relative;
@@ -339,25 +365,31 @@
   .npc:hover .tip, .npc:focus-visible .tip{ opacity:1; }
   .npc:hover .patch, .npc:focus-visible .patch{ transform:translateY(-3px); }
   .npc-download{
-    display:inline-flex;
+    position:absolute;
+    top:48px;
+    right:5px;
+    z-index:4;
+    width:18px; height:18px;
+    display:flex;
     align-items:center;
     justify-content:center;
-    margin-top:4px;
-    padding:2px 7px;
-    border:1px solid rgba(224,192,122,.48);
-    border-radius:999px;
-    color:#e0c07a;
-    background:rgba(13,4,3,.55);
+    border:1px solid rgba(224,192,122,.32);
+    border-radius:50%;
+    color:#c6a46b;
+    background:rgba(13,4,3,.72);
     font-size:.58rem;
-    font-weight:700;
-    line-height:1.4;
+    font-weight:900;
+    line-height:1;
     text-decoration:none;
-    white-space:nowrap;
+    opacity:.45;
+    transition:opacity .15s ease, transform .15s ease, border-color .15s ease;
   }
-  .npc-download:hover, .npc-download:focus-visible{
+  .npc-slot:hover .npc-download, .npc-download:focus-visible{
+    opacity:.95;
     color:#fff2d2;
     border-color:#e0c07a;
-    background:rgba(90,45,20,.65);
+    transform:translateY(-1px);
+    outline:none;
   }
 
   #data-status{
@@ -405,7 +437,7 @@
     <input id="search" type="text" placeholder="도구 이름으로 찾기...">
   </header>
 
-  <div id="center-ornament">🔥👹🔥<span>염라대왕도 두 손을 들었습니다.</span></div>
+  <div id="center-ornament" aria-label="상단 악마 바로가기">🔥👹🔥<i id="ornament-badge" class="ornament-badge" aria-hidden="true"></i><span>염라대왕도 두 손을 들었습니다.</span></div>
 
   <div id="data-status" role="status" aria-live="polite"></div>
   <main id="map"></main>
@@ -433,7 +465,7 @@
    배포 후 이 값을 Apps Script 웹 앱 URL로 바꿔주세요 (Code.gs 참고)
    ============================================================ */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCtH6IPuuBwaYtDCvzby4fCdUwN4xwhcg282JTL3U6tvauvBJmEg0boxmlHyQ-rd3yGA/exec";
-const LOCAL_CACHE_KEY = "gotohell-tools-v2";
+const LOCAL_CACHE_KEY = "gotohell-site-v3";
 const LOCAL_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7일: 오래돼도 먼저 표시 후 즉시 갱신
 const FETCH_TIMEOUT_MS = 20000; // Apps Script 콜드스타트 대비. 화면은 로컬 캐시로 즉시 표시됨
 
@@ -455,6 +487,7 @@ const FALLBACK_TOOLS = [
 ];
 
 const CONFIG = VILLAGE_META.map(v => ({ ...v, tools: [] }));
+let SITE_ORNAMENT = { mode:"none", url:"", actionUrl:"", hasFile:false, fileName:"" };
 
 /* ---------- 조선시대 신분별 8비트 픽셀 캐릭터 4종 (특정 인물/작품 모작 아님) ----------
    사또(sado) / 왕(king) / 신하(sinha) / 무당(mudang) — 마을 안에서 번갈아 등장
@@ -510,6 +543,51 @@ function escapeHTML(value) {
     "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
   }[ch]));
 }
+
+function applyOrnament(value) {
+  const raw = value && typeof value === "object" ? value : {};
+  const mode = ["url", "file"].includes(String(raw.mode || "")) ? String(raw.mode) : "none";
+  SITE_ORNAMENT = {
+    mode,
+    url: normalizeHttpUrl(raw.url),
+    actionUrl: normalizeHttpUrl(raw.actionUrl),
+    hasFile: !!raw.hasFile,
+    fileName: cleanText(raw.fileName, 120)
+  };
+  renderOrnamentAction();
+}
+
+function renderOrnamentAction(){
+  const el = document.getElementById("center-ornament");
+  const badge = document.getElementById("ornament-badge");
+  if (!el || !badge) return;
+  const href = SITE_ORNAMENT.mode === "url" ? SITE_ORNAMENT.url : SITE_ORNAMENT.actionUrl;
+  const active = !!href;
+  el.classList.toggle("clickable", active);
+  el.tabIndex = active ? 0 : -1;
+  el.setAttribute("role", active ? "link" : "img");
+  if (active) {
+    const isFile = SITE_ORNAMENT.mode === "file";
+    badge.textContent = isFile ? "↓" : "↗";
+    el.title = isFile
+      ? `${SITE_ORNAMENT.fileName || "첨부파일"} 다운로드`
+      : "연결된 페이지 열기";
+  } else {
+    badge.textContent = "";
+    el.removeAttribute("title");
+  }
+}
+
+function openOrnamentAction(){
+  const href = SITE_ORNAMENT.mode === "url" ? SITE_ORNAMENT.url : SITE_ORNAMENT.actionUrl;
+  if (!href) return;
+  window.open(href, "_blank", "noopener");
+}
+
+document.getElementById("center-ornament").addEventListener("click", openOrnamentAction);
+document.getElementById("center-ornament").addEventListener("keydown", e => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openOrnamentAction(); }
+});
 
 function render(filter = "") {
   map.innerHTML = "";
@@ -574,7 +652,7 @@ function render(filter = "") {
         dl.href = SCRIPT_URL + "?download=" + encodeURIComponent(tool.id);
         dl.target = "_blank";
         dl.rel = "noopener";
-        dl.textContent = "⬇ HTML";
+        dl.textContent = "↓";
         dl.title = `${tool.name} 원본 HTML 다운로드`;
         slot.appendChild(dl);
       }
@@ -628,15 +706,19 @@ function readLocalTools() {
   try {
     const cached = JSON.parse(localStorage.getItem(LOCAL_CACHE_KEY) || "null");
     if (!cached || !Array.isArray(cached.tools) || !cached.savedAt) return null;
-    return { tools: cached.tools, age: Date.now() - Number(cached.savedAt) };
+    return {
+      tools: cached.tools,
+      ornament: cached.ornament || { mode:"none" },
+      age: Date.now() - Number(cached.savedAt)
+    };
   } catch (_) {
     return null;
   }
 }
 
-function saveLocalTools(tools) {
+function saveLocalTools(tools, ornament = SITE_ORNAMENT) {
   try {
-    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ tools, savedAt: Date.now() }));
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ tools, ornament, savedAt: Date.now() }));
   } catch (_) {}
 }
 
@@ -665,6 +747,7 @@ async function loadData() {
   // 재방문은 마지막 정상 명단을 즉시 표시한다. Apps Script 응답은 뒤에서 갱신한다.
   if (cached && cached.tools.length) {
     applyTools(cached.tools);
+    applyOrnament(cached.ornament);
     render();
     hasUsableData = true;
     if (cached.age > LOCAL_CACHE_MAX_AGE) {
@@ -672,6 +755,7 @@ async function loadData() {
     }
   } else {
     applyTools(FALLBACK_TOOLS);
+    applyOrnament({ mode:"none" });
     render();
     setDataStatus("최신 명단을 불러오는 중입니다…", false);
   }
@@ -680,7 +764,8 @@ async function loadData() {
     const data = await fetchJSON(SCRIPT_URL + "?action=getData&_=" + Date.now(), 1);
     if (!data.ok || !Array.isArray(data.tools)) throw new Error(data.error || "잘못된 응답");
     applyTools(data.tools);
-    saveLocalTools(data.tools);
+    applyOrnament(data.ornament || { mode:"none" });
+    saveLocalTools(data.tools, SITE_ORNAMENT);
     render(document.getElementById("search").value);
     setDataStatus("");
   } catch (err) {

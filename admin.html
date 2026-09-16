@@ -355,10 +355,21 @@ document.querySelectorAll(".pin-key").forEach(btn => {
 
 document.addEventListener("keydown", e => {
   if (document.getElementById("admin").style.display === "block") return;
-  if (checking) return;
+  if (checking || e.isComposing || e.repeat) return;
+
+  // 실제 입력칸에 포커스가 있으면 브라우저의 input 이벤트만 사용한다.
+  // keydown까지 동시에 처리하면 한 번 누른 숫자가 두 번 입력될 수 있다.
+  const target = e.target;
+  if (target && (
+    target === mobilePinInput ||
+    target.matches?.("input, textarea, select, [contenteditable='true']")
+  )) return;
+
   if (/^[0-9]$/.test(e.key) && pin.length < 4) {
+    e.preventDefault();
     setPinValue(pin + e.key);
   } else if (e.key === "Backspace") {
+    e.preventDefault();
     setPinValue(pin.slice(0, -1));
   }
 });

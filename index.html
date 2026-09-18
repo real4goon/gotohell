@@ -437,7 +437,7 @@
   .guestbook-panel{ border-top:1px solid rgba(255,255,255,.08); padding:16px; }
   .guestbook-form{
     display:grid;
-    grid-template-columns:150px 1fr auto;
+    grid-template-columns:140px 150px 1fr auto;
     gap:8px;
     align-items:start;
     margin-bottom:16px;
@@ -468,7 +468,7 @@
     cursor:pointer;
   }
   .guestbook-submit:disabled{ opacity:.5; cursor:default; }
-  .guestbook-form-meta{ grid-column:2/4; display:flex; justify-content:space-between; gap:8px; color:#9d8272; font-size:.63rem; margin-top:-3px; }
+  .guestbook-form-meta{ grid-column:1/5; display:flex; justify-content:space-between; gap:8px; color:#9d8272; font-size:.63rem; margin-top:-3px; }
   #guestbook-msg{ min-height:1.3em; margin:0 0 10px; font-size:.7rem; color:#dcb59b; }
   #guestbook-msg.err{ color:#ff9679; }
   #guestbook-msg.ok{ color:#9bd394; }
@@ -480,10 +480,38 @@
     padding:9px 11px;
     border-radius:7px;
   }
-  .guestbook-head{ display:flex; justify-content:space-between; gap:10px; margin-bottom:4px; }
+  .guestbook-head{ display:flex; justify-content:space-between; gap:10px; margin-bottom:4px; align-items:center; }
+  .guestbook-head-right{ display:flex; align-items:center; gap:7px; }
+  .guestbook-delete-btn{
+    border:1px solid rgba(255,122,46,.38); background:transparent; color:#c49a80;
+    border-radius:5px; padding:3px 7px; font-family:inherit; font-size:.6rem; cursor:pointer;
+  }
+  .guestbook-delete-btn:hover{ color:#ffd0ad; border-color:var(--ember-dim); }
+  .guestbook-delete-panel{
+    display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:8px; padding-top:8px;
+    border-top:1px dashed rgba(255,255,255,.1);
+  }
+  .guestbook-delete-panel input{
+    width:126px; border:1px solid #5e2b1c; background:#130907; color:var(--panel-text);
+    border-radius:6px; padding:7px 8px; font-family:inherit; font-size:.7rem; letter-spacing:.18em;
+  }
+  .guestbook-delete-confirm, .guestbook-delete-cancel{
+    border:0; border-radius:6px; padding:7px 9px; font-family:inherit; font-size:.66rem; font-weight:800; cursor:pointer;
+  }
+  .guestbook-delete-confirm{ background:#7a2d1b; color:#fff; }
+  .guestbook-delete-cancel{ background:#3b2b27; color:#d9c1b1; }
+  .guestbook-delete-note{ width:100%; color:#9d8272; font-size:.6rem; }
   .guestbook-name{ color:#f0c3a4; font-size:.72rem; font-weight:900; }
   .guestbook-time{ color:#8f7565; font-size:.61rem; white-space:nowrap; }
   .guestbook-text{ color:#e3cfbf; font-size:.72rem; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .guestbook-owner-reply{
+    margin:9px 0 0 18px; padding:8px 10px; border-left:3px solid rgba(255,122,46,.55);
+    border-radius:0 6px 6px 0; background:rgba(255,122,46,.07);
+  }
+  .guestbook-owner-head{ display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:3px; }
+  .guestbook-owner-name{ color:#ffad79; font-size:.66rem; font-weight:900; }
+  .guestbook-owner-time{ color:#80685b; font-size:.58rem; white-space:nowrap; }
+  .guestbook-owner-text{ color:#d9c7ba; font-size:.69rem; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
   @media (max-width:650px){
     .guestbook-form{ grid-template-columns:1fr auto; }
     .guestbook-form input{ grid-column:1/3; }
@@ -535,9 +563,10 @@
     <div id="guestbook-panel" class="guestbook-panel" hidden>
       <form id="guestbook-form" class="guestbook-form">
         <input id="guestbook-name" type="text" maxlength="15" placeholder="닉네임 (15자 이내)" autocomplete="nickname" required>
+        <input id="guestbook-delete-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="삭제 PIN 4자리" autocomplete="new-password" required>
         <textarea id="guestbook-message" maxlength="150" placeholder="한마디 남겨주세요. (150자 이내)" required></textarea>
         <button id="guestbook-submit" class="guestbook-submit" type="submit">흔적 남기기</button>
-        <div class="guestbook-form-meta"><span>연속 등록은 30초 간격으로 제한됩니다.</span><span id="guestbook-count">0 / 150</span></div>
+        <div class="guestbook-form-meta"><span>삭제 PIN 4자리는 본인 글 삭제에 필요합니다 · 연속 등록 30초</span><span id="guestbook-count">0 / 150</span></div>
       </form>
       <div id="guestbook-msg" role="status" aria-live="polite"></div>
       <div id="guestbook-list" class="guestbook-list"><div class="guestbook-empty">방명록을 불러오는 중입니다…</div></div>
@@ -905,34 +934,112 @@ function formatGuestbookTime(value){
 function renderGuestbook(entries){
   const list = document.getElementById("guestbook-list");
   list.innerHTML = "";
-  const rows = Array.isArray(entries) ? entries : [];
-  if (!rows.length) {
+  if (!Array.isArray(entries) || !entries.length) {
     const empty = document.createElement("div");
     empty.className = "guestbook-empty";
-    empty.textContent = "아직 흔적이 없습니다. 첫 번째 망자가 되어보세요.";
+    empty.textContent = "아직 남겨진 흔적이 없습니다. 첫 흔적을 남겨보세요.";
     list.appendChild(empty);
     return;
   }
-  rows.forEach(item => {
+  entries.forEach(item => {
     const box = document.createElement("article");
     box.className = "guestbook-entry";
     const head = document.createElement("div");
     head.className = "guestbook-head";
     const name = document.createElement("span");
     name.className = "guestbook-name";
-    name.textContent = cleanText(item.nickname, 15) || "익명의 망자";
-    const time = document.createElement("time");
+    name.textContent = String(item.nickname || "익명").slice(0,15);
+    const right = document.createElement("div");
+    right.className = "guestbook-head-right";
+    const time = document.createElement("span");
     time.className = "guestbook-time";
     time.textContent = formatGuestbookTime(item.createdAt);
+    right.appendChild(time);
+    if (item.canDelete) {
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "guestbook-delete-btn";
+      del.textContent = "삭제";
+      del.addEventListener("click", () => openGuestbookDeletePanel(box, item));
+      right.appendChild(del);
+    }
     const text = document.createElement("div");
     text.className = "guestbook-text";
-    text.textContent = String(item.message || "").slice(0, 150);
-    head.append(name, time);
+    text.textContent = String(item.message || "").slice(0,150);
+    head.append(name, right);
     box.append(head, text);
+    if (item.reply) {
+      const replyBox = document.createElement("div");
+      replyBox.className = "guestbook-owner-reply";
+      const replyHead = document.createElement("div");
+      replyHead.className = "guestbook-owner-head";
+      const replyName = document.createElement("span");
+      replyName.className = "guestbook-owner-name";
+      replyName.textContent = "👹 주인장";
+      const replyTime = document.createElement("span");
+      replyTime.className = "guestbook-owner-time";
+      replyTime.textContent = formatGuestbookTime(item.replyAt);
+      const replyText = document.createElement("div");
+      replyText.className = "guestbook-owner-text";
+      replyText.textContent = String(item.reply || "").slice(0,200);
+      replyHead.append(replyName, replyTime);
+      replyBox.append(replyHead, replyText);
+      box.appendChild(replyBox);
+    }
     list.appendChild(box);
   });
 }
 
+function openGuestbookDeletePanel(box, item){
+  box.querySelector(".guestbook-delete-panel")?.remove();
+  const panel = document.createElement("div");
+  panel.className = "guestbook-delete-panel";
+  const input = document.createElement("input");
+  input.type = "password";
+  input.inputMode = "numeric";
+  input.pattern = "[0-9]*";
+  input.maxLength = 4;
+  input.placeholder = "삭제 PIN 4자리";
+  input.autocomplete = "off";
+  const confirmBtn = document.createElement("button");
+  confirmBtn.type = "button";
+  confirmBtn.className = "guestbook-delete-confirm";
+  confirmBtn.textContent = "삭제하기";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "guestbook-delete-cancel";
+  cancelBtn.textContent = "취소";
+  const note = document.createElement("div");
+  note.className = "guestbook-delete-note";
+  note.textContent = "글 작성할 때 설정한 4자리 삭제 PIN을 입력하세요.";
+  cancelBtn.onclick = () => panel.remove();
+  confirmBtn.onclick = async () => {
+    const deletePin = input.value.replace(/\D/g, "").slice(0, 4);
+    if (!/^[0-9]{4}$/.test(deletePin)) {
+      note.textContent = "삭제 PIN 4자리를 입력해주세요.";
+      return;
+    }
+    confirmBtn.disabled = true;
+    note.textContent = "삭제 확인 중…";
+    try {
+      const data = await postJSON({ action:"deleteGuestbookSelf", id:item.id, deletePin, clientId:guestbookClientId });
+      if (!data.ok) throw new Error(data.error || "삭제 실패");
+      renderGuestbook(data.entries || []);
+      const msg = document.getElementById("guestbook-msg");
+      msg.textContent = "흔적을 지웠습니다.";
+      msg.className = "ok";
+      guestbookLoaded = true;
+    } catch(err) {
+      note.textContent = err?.message || "삭제하지 못했습니다.";
+      confirmBtn.disabled = false;
+      input.focus();
+      input.select();
+    }
+  };
+  panel.append(input, confirmBtn, cancelBtn, note);
+  box.appendChild(panel);
+  input.focus();
+}
 async function loadGuestbook(force = false){
   if (guestbookLoading || (guestbookLoaded && !force)) return;
   guestbookLoading = true;
@@ -975,6 +1082,7 @@ const guestbookToggle = document.getElementById("guestbook-toggle");
 const guestbookPanel = document.getElementById("guestbook-panel");
 const guestbookName = document.getElementById("guestbook-name");
 const guestbookMessage = document.getElementById("guestbook-message");
+const guestbookDeletePin = document.getElementById("guestbook-delete-pin");
 const guestbookCount = document.getElementById("guestbook-count");
 try { guestbookName.value = localStorage.getItem(GUESTBOOK_NAME_KEY) || ""; } catch (_) {}
 
@@ -994,6 +1102,7 @@ document.getElementById("guestbook-form").addEventListener("submit", async e => 
   e.preventDefault();
   const nickname = guestbookName.value.trim();
   const message = guestbookMessage.value.trim();
+  const deletePin = guestbookDeletePin.value.replace(/\D/g, "").slice(0, 4);
   const msg = document.getElementById("guestbook-msg");
   const btn = document.getElementById("guestbook-submit");
   if (!nickname) { msg.textContent = "닉네임을 입력해주세요."; msg.className = "err"; return; }
@@ -1002,10 +1111,11 @@ document.getElementById("guestbook-form").addEventListener("submit", async e => 
   msg.textContent = "흔적을 새기는 중…";
   msg.className = "";
   try {
-    const data = await postJSON({ action:"addGuestbook", nickname, message, clientId:guestbookClientId });
+    const data = await postJSON({ action:"addGuestbook", nickname, message, deletePin, clientId:guestbookClientId });
     if (!data.ok) throw new Error(data.error || "등록 실패");
     try { localStorage.setItem(GUESTBOOK_NAME_KEY, nickname); } catch (_) {}
     guestbookMessage.value = "";
+    guestbookDeletePin.value = "";
     guestbookCount.textContent = "0 / 150";
     renderGuestbook(data.entries || []);
     guestbookLoaded = true;

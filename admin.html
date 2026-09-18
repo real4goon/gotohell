@@ -149,6 +149,21 @@
   .guest-admin-message{ white-space:pre-wrap; overflow-wrap:anywhere; font-size:.72rem; line-height:1.5; color:#dfcbbd; }
   .guest-admin-bottom{ display:flex; justify-content:flex-end; margin-top:7px; }
   .guest-admin-delete{ border:0; border-radius:6px; background:#6b2110; color:#fff; padding:6px 9px; font-family:inherit; font-size:.68rem; cursor:pointer; }
+  .guest-admin-reply-current{ margin-top:8px; padding:7px 9px; border-left:3px solid rgba(255,122,46,.55); background:rgba(255,122,46,.06); border-radius:0 6px 6px 0; }
+  .guest-admin-reply-label{ color:#ffad79; font-size:.64rem; font-weight:900; margin-bottom:3px; }
+  .guest-admin-reply-text{ color:#d8c4b6; font-size:.69rem; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .guest-admin-reply-editor{ display:none; margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,.1); }
+  .guest-admin-reply-editor.open{ display:block; }
+  .guest-admin-reply-editor textarea{ min-height:62px; resize:vertical; font-size:.72rem; }
+  .guest-admin-reply-meta{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:5px; color:#927666; font-size:.61rem; }
+  .guest-admin-reply-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+  .guest-admin-reply-btn, .guest-admin-reply-save, .guest-admin-reply-cancel, .guest-admin-reply-delete{
+    border:0; border-radius:6px; color:#fff; padding:6px 9px; font-family:inherit; font-size:.68rem; cursor:pointer;
+  }
+  .guest-admin-reply-btn{ background:#6a5525; }
+  .guest-admin-reply-save{ background:#8a4b21; }
+  .guest-admin-reply-cancel{ background:#3f4c57; }
+  .guest-admin-reply-delete{ background:#714224; }
 
   label{ display:block; font-size:0.8rem; font-weight:700; margin:10px 0 4px; }
   input[type=text], textarea{
@@ -179,9 +194,9 @@
   <h1>🔥 원무팀 지옥도 · 관리자</h1>
 
   <div id="gate">
-    <p>관리자 PIN 4자리를 입력하세요.</p>
-    <div id="dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-    <input id="mobilePinInput" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="관리자 PIN 4자리" placeholder="••••">
+    <p>관리자 PIN 6자리를 입력하세요.<br><small style="opacity:.72;">기존 4자리 PIN은 앞에 <b>00</b>을 붙여 입력하세요. (예: 1234 → 001234)</small></p>
+    <div id="dots" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <input id="mobilePinInput" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" aria-label="관리자 PIN 6자리" placeholder="••••••">
     <div class="pin-mobile-help">휴대폰에서는 아래 숫자 버튼을 눌러도 됩니다.</div>
     <div class="pin-keypad" aria-label="PIN 숫자 키패드">
       <button type="button" class="pin-key" data-pin="1">1</button>
@@ -240,7 +255,7 @@
         <strong>👹 저승 방명록 관리</strong>
         <button id="guestbookRefreshBtn" class="guest-admin-refresh" type="button">새로고침</button>
       </div>
-      <div class="guest-admin-help">최근 방명록을 확인하고 부적절한 글을 삭제할 수 있습니다. 방명록 작성자는 수정·삭제할 수 없습니다.</div>
+      <div class="guest-admin-help">최근 방명록을 확인하고 부적절한 글을 삭제할 수 있습니다. 새 글은 작성자도 본인이 설정한 4자리 삭제 PIN으로 직접 삭제할 수 있습니다. 관리자는 각 글에 주인장 답글을 달 수 있습니다.</div>
       <div id="guestbookAdminCount" class="count">최근 0건</div>
       <div id="guestbookAdminList" class="guest-admin-list"><div class="guest-admin-empty">관리자 로그인 후 불러옵니다.</div></div>
     </div>
@@ -286,10 +301,10 @@
 
     <div class="card" style="margin-top:18px;">
       <strong>관리자 PIN 변경</strong>
-      <label>새 PIN (숫자 4자리)</label>
-      <input type="text" id="pinNew" inputmode="numeric" maxlength="4" placeholder="예: 1234">
+      <label>새 PIN (숫자 6자리)</label>
+      <input type="text" id="pinNew" inputmode="numeric" maxlength="6" placeholder="예: 123456">
       <label>새 PIN 확인</label>
-      <input type="text" id="pinConfirm" inputmode="numeric" maxlength="4" placeholder="다시 입력">
+      <input type="text" id="pinConfirm" inputmode="numeric" maxlength="6" placeholder="다시 입력">
       <button id="pinBtn" style="margin-top:12px; width:100%; padding:10px; border:none; border-radius:8px; background:var(--ember-dim); color:#fff; font-weight:900; font-size:0.85rem; cursor:pointer;">PIN 변경하기</button>
       <div id="pinMsg" style="font-size:0.8rem; margin-top:8px; min-height:1.2em;"></div>
     </div>
@@ -374,9 +389,9 @@ function updateDots(){
   dots.forEach((d,i) => d.classList.toggle("filled", i < pin.length));
 }
 function setPinValue(value){
-  pin = String(value || "").replace(/\D/g, "").slice(0, 4);
+  pin = String(value || "").replace(/\D/g, "").slice(0, 6);
   syncPinUI();
-  if (pin.length === 4 && !checking) checkPin();
+  if (pin.length === 6 && !checking) checkPin();
 }
 
 if (mobilePinInput) {
@@ -393,7 +408,7 @@ document.querySelectorAll(".pin-key").forEach(btn => {
     if (checking) return;
     const digit = btn.dataset.pin;
     const action = btn.dataset.action;
-    if (digit && pin.length < 4) setPinValue(pin + digit);
+    if (digit && pin.length < 6) setPinValue(pin + digit);
     else if (action === "back") setPinValue(pin.slice(0, -1));
     else if (action === "clear") setPinValue("");
   });
@@ -411,7 +426,7 @@ document.addEventListener("keydown", e => {
     target.matches?.("input, textarea, select, [contenteditable='true']")
   )) return;
 
-  if (/^[0-9]$/.test(e.key) && pin.length < 4) {
+  if (/^[0-9]$/.test(e.key) && pin.length < 6) {
     e.preventDefault();
     setPinValue(pin + e.key);
   } else if (e.key === "Backspace") {
@@ -733,16 +748,126 @@ function renderGuestbookAdmin(){
   rows.forEach(item => {
     const box = document.createElement("div");
     box.className = "guest-admin-item";
+
     const meta = document.createElement("div");
     meta.className = "guest-admin-meta";
-    const name = document.createElement("span"); name.className = "guest-admin-name"; name.textContent = String(item.nickname || "익명").slice(0,15);
-    const time = document.createElement("span"); time.className = "guest-admin-time"; time.textContent = formatGuestbookAdminTime(item.createdAt);
-    const message = document.createElement("div"); message.className = "guest-admin-message"; message.textContent = String(item.message || "").slice(0,150);
-    const bottom = document.createElement("div"); bottom.className = "guest-admin-bottom";
-    const del = document.createElement("button"); del.type = "button"; del.className = "guest-admin-delete"; del.textContent = "삭제";
+    const name = document.createElement("span");
+    name.className = "guest-admin-name";
+    name.textContent = String(item.nickname || "익명").slice(0,15);
+    const time = document.createElement("span");
+    time.className = "guest-admin-time";
+    time.textContent = formatGuestbookAdminTime(item.createdAt);
+    meta.append(name, time);
+
+    const message = document.createElement("div");
+    message.className = "guest-admin-message";
+    message.textContent = String(item.message || "").slice(0,150);
+    box.append(meta, message);
+
+    if (item.reply) {
+      const current = document.createElement("div");
+      current.className = "guest-admin-reply-current";
+      const label = document.createElement("div");
+      label.className = "guest-admin-reply-label";
+      label.textContent = `👹 주인장 답글 · ${formatGuestbookAdminTime(item.replyAt)}`;
+      const txt = document.createElement("div");
+      txt.className = "guest-admin-reply-text";
+      txt.textContent = String(item.reply || "").slice(0,200);
+      current.append(label, txt);
+      box.appendChild(current);
+    }
+
+    const editor = document.createElement("div");
+    editor.className = "guest-admin-reply-editor";
+    const textarea = document.createElement("textarea");
+    textarea.maxLength = 200;
+    textarea.placeholder = "주인장 답글을 입력하세요. (200자 이내)";
+    textarea.value = String(item.reply || "").slice(0,200);
+    const editorMeta = document.createElement("div");
+    editorMeta.className = "guest-admin-reply-meta";
+    const count = document.createElement("span");
+    count.textContent = `${textarea.value.length} / 200`;
+    textarea.addEventListener("input", () => { count.textContent = `${textarea.value.length} / 200`; });
+    const editorActions = document.createElement("div");
+    editorActions.className = "guest-admin-reply-actions";
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "guest-admin-reply-save";
+    save.textContent = item.reply ? "답글 수정 저장" : "답글 등록";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "guest-admin-reply-cancel";
+    cancel.textContent = "취소";
+    save.onclick = () => saveGuestbookReply(item.id, textarea.value, save);
+    cancel.onclick = () => { editor.classList.remove("open"); textarea.value = String(item.reply || "").slice(0,200); count.textContent = `${textarea.value.length} / 200`; };
+    editorActions.append(save, cancel);
+    editorMeta.append(count, editorActions);
+    editor.append(textarea, editorMeta);
+    box.appendChild(editor);
+
+    const bottom = document.createElement("div");
+    bottom.className = "guest-admin-bottom";
+    bottom.style.gap = "6px";
+    bottom.style.flexWrap = "wrap";
+    const replyBtn = document.createElement("button");
+    replyBtn.type = "button";
+    replyBtn.className = "guest-admin-reply-btn";
+    replyBtn.textContent = item.reply ? "답글 수정" : "답글 달기";
+    replyBtn.onclick = () => { editor.classList.toggle("open"); if (editor.classList.contains("open")) textarea.focus(); };
+    bottom.appendChild(replyBtn);
+
+    if (item.reply) {
+      const replyDel = document.createElement("button");
+      replyDel.type = "button";
+      replyDel.className = "guest-admin-reply-delete";
+      replyDel.textContent = "답글 삭제";
+      replyDel.onclick = () => deleteGuestbookReply(item.id);
+      bottom.appendChild(replyDel);
+    }
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "guest-admin-delete";
+    del.textContent = "글 삭제";
     del.onclick = () => deleteGuestbookEntry(item.id, item.nickname);
-    meta.append(name, time); bottom.appendChild(del); box.append(meta, message, bottom); list.appendChild(box);
+    bottom.appendChild(del);
+    box.appendChild(bottom);
+    list.appendChild(box);
   });
+}
+
+async function saveGuestbookReply(id, replyValue, button){
+  const reply = String(replyValue || "").trim().slice(0,200);
+  if (!reply) return alert("답글 내용을 입력해주세요.");
+  if (button) button.disabled = true;
+  try {
+    const data = await fetchJSON(SCRIPT_URL, {
+      method:"POST",
+      body:JSON.stringify({ action:"saveGuestbookReply", pin:verifiedPin, clientId, id, reply })
+    }, 1);
+    if (!data.ok) throw new Error(data.error || "답글 저장 실패");
+    guestbookEntries = Array.isArray(data.guestbook) ? data.guestbook : [];
+    renderGuestbookAdmin();
+  } catch(err) {
+    alert(err?.message || "답글 저장 중 오류가 발생했습니다.");
+  } finally {
+    if (button && button.isConnected) button.disabled = false;
+  }
+}
+
+async function deleteGuestbookReply(id){
+  if (!confirm("이 방명록의 주인장 답글만 삭제할까요? 원문은 남습니다.")) return;
+  try {
+    const data = await fetchJSON(SCRIPT_URL, {
+      method:"POST",
+      body:JSON.stringify({ action:"deleteGuestbookReply", pin:verifiedPin, clientId, id })
+    }, 1);
+    if (!data.ok) throw new Error(data.error || "답글 삭제 실패");
+    guestbookEntries = Array.isArray(data.guestbook) ? data.guestbook : [];
+    renderGuestbookAdmin();
+  } catch(err) {
+    alert(err?.message || "답글 삭제 중 오류가 발생했습니다.");
+  }
 }
 
 async function refreshGuestbookAdmin(){
@@ -967,8 +1092,8 @@ document.getElementById("pinBtn").addEventListener("click", async () => {
   const msg = document.getElementById("pinMsg");
   msg.textContent = ""; msg.className = "";
 
-  if (!/^[0-9]{4}$/.test(newPin)) {
-    msg.textContent = "PIN은 숫자 4자리로 입력해주세요.";
+  if (!/^[0-9]{6}$/.test(newPin)) {
+    msg.textContent = "PIN은 숫자 6자리로 입력해주세요.";
     msg.className = "err";
     return;
   }

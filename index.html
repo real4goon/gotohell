@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow,noarchive">
 <title>원무팀 지옥도</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
@@ -406,6 +407,90 @@
   }
   #data-status.warn{ display:block; color:#ffb08c; }
 
+  .guestbook{
+    position:relative;
+    z-index:2;
+    width:min(760px, 100%);
+    margin:34px auto 6px;
+    border:3px solid var(--outline);
+    background:rgba(36,20,18,.92);
+    box-shadow:5px 5px 0 var(--outline);
+  }
+  .guestbook-toggle{
+    width:100%;
+    border:0;
+    background:transparent;
+    color:var(--panel-text);
+    font-family:inherit;
+    padding:15px 17px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    cursor:pointer;
+    text-align:left;
+  }
+  .guestbook-toggle strong{ color:#ffd0ad; font-size:.9rem; }
+  .guestbook-toggle small{ display:block; margin-top:3px; color:#bda18d; font-size:.66rem; font-weight:700; }
+  .guestbook-toggle .arrow{ color:var(--ember); font-weight:900; transition:transform .18s ease; }
+  .guestbook.open .guestbook-toggle .arrow{ transform:rotate(180deg); }
+  .guestbook-panel{ border-top:1px solid rgba(255,255,255,.08); padding:16px; }
+  .guestbook-form{
+    display:grid;
+    grid-template-columns:150px 1fr auto;
+    gap:8px;
+    align-items:start;
+    margin-bottom:16px;
+  }
+  .guestbook-form input, .guestbook-form textarea{
+    width:100%;
+    border:2px solid #5e2b1c;
+    background:#130907;
+    color:var(--panel-text);
+    border-radius:7px;
+    padding:9px 10px;
+    font-family:inherit;
+    font-size:.77rem;
+    outline:none;
+  }
+  .guestbook-form input:focus, .guestbook-form textarea:focus{ border-color:var(--ember-dim); }
+  .guestbook-form textarea{ min-height:68px; resize:vertical; line-height:1.45; }
+  .guestbook-submit{
+    min-height:42px;
+    padding:9px 13px;
+    border:0;
+    border-radius:7px;
+    background:var(--ember);
+    color:#1c0805;
+    font-family:inherit;
+    font-size:.76rem;
+    font-weight:900;
+    cursor:pointer;
+  }
+  .guestbook-submit:disabled{ opacity:.5; cursor:default; }
+  .guestbook-form-meta{ grid-column:2/4; display:flex; justify-content:space-between; gap:8px; color:#9d8272; font-size:.63rem; margin-top:-3px; }
+  #guestbook-msg{ min-height:1.3em; margin:0 0 10px; font-size:.7rem; color:#dcb59b; }
+  #guestbook-msg.err{ color:#ff9679; }
+  #guestbook-msg.ok{ color:#9bd394; }
+  .guestbook-list{ display:flex; flex-direction:column; gap:8px; }
+  .guestbook-empty{ text-align:center; padding:18px 8px; color:#a78b79; font-size:.73rem; }
+  .guestbook-entry{
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(12,5,4,.35);
+    padding:9px 11px;
+    border-radius:7px;
+  }
+  .guestbook-head{ display:flex; justify-content:space-between; gap:10px; margin-bottom:4px; }
+  .guestbook-name{ color:#f0c3a4; font-size:.72rem; font-weight:900; }
+  .guestbook-time{ color:#8f7565; font-size:.61rem; white-space:nowrap; }
+  .guestbook-text{ color:#e3cfbf; font-size:.72rem; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+  @media (max-width:650px){
+    .guestbook-form{ grid-template-columns:1fr auto; }
+    .guestbook-form input{ grid-column:1/3; }
+    .guestbook-form textarea{ grid-column:1/2; }
+    .guestbook-form-meta{ grid-column:1/3; }
+  }
+
   footer{
     text-align:center;
     color:#c9a98f;
@@ -442,6 +527,23 @@
   <div id="data-status" role="status" aria-live="polite"></div>
   <main id="map"></main>
 
+  <section id="guestbook" class="guestbook" aria-label="저승 방명록">
+    <button id="guestbook-toggle" class="guestbook-toggle" type="button" aria-expanded="false" aria-controls="guestbook-panel">
+      <span><strong>👹 저승 방명록</strong><small>살아있는 자는 흔적을 남기고 가시오.</small></span>
+      <span class="arrow" aria-hidden="true">⌄</span>
+    </button>
+    <div id="guestbook-panel" class="guestbook-panel" hidden>
+      <form id="guestbook-form" class="guestbook-form">
+        <input id="guestbook-name" type="text" maxlength="15" placeholder="닉네임 (15자 이내)" autocomplete="nickname" required>
+        <textarea id="guestbook-message" maxlength="150" placeholder="한마디 남겨주세요. (150자 이내)" required></textarea>
+        <button id="guestbook-submit" class="guestbook-submit" type="submit">흔적 남기기</button>
+        <div class="guestbook-form-meta"><span>연속 등록은 30초 간격으로 제한됩니다.</span><span id="guestbook-count">0 / 150</span></div>
+      </form>
+      <div id="guestbook-msg" role="status" aria-live="polite"></div>
+      <div id="guestbook-list" class="guestbook-list"><div class="guestbook-empty">방명록을 불러오는 중입니다…</div></div>
+    </div>
+  </section>
+
   <footer>
     회색 망자는 아직 링크가 없는 도구예요.<br>
     관리자 페이지에서 링크 또는 HTML 파일을 등록하면 바로 사용할 수 있습니다.
@@ -468,6 +570,18 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCtH6IPuuBwaYtDCvzb
 const LOCAL_CACHE_KEY = "gotohell-site-v3";
 const LOCAL_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7일: 오래돼도 먼저 표시 후 즉시 갱신
 const FETCH_TIMEOUT_MS = 20000; // Apps Script 콜드스타트 대비. 화면은 로컬 캐시로 즉시 표시됨
+const GUESTBOOK_CLIENT_KEY = "gotohell-guestbook-client-id";
+const GUESTBOOK_NAME_KEY = "gotohell-guestbook-name";
+const guestbookClientId = (() => {
+  try {
+    let id = localStorage.getItem(GUESTBOOK_CLIENT_KEY);
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+      localStorage.setItem(GUESTBOOK_CLIENT_KEY, id);
+    }
+    return id;
+  } catch (_) { return "guest"; }
+})();
 
 /* 마을(섹터) 메타 정보 — 마을 자체를 추가/변경할 때만 여기를 수정하면 됩니다.
    각 마을 안의 도구 "명단"은 이제 관리자 페이지에서 추가/삭제하며,
@@ -688,7 +802,7 @@ function applyTools(toolRows) {
     v.tools.push({
       id: cleanText(t.id, 80),
       name: cleanText(t.name, 80) || "이름 없는 도구",
-      emoji: cleanText(t.emoji, 8) || "🔥",
+      emoji: cleanText(t.emoji, 16) || "🔥",
       url: normalizeHttpUrl(t.url),
       desc: cleanText(t.desc, 240),
       hasFile: !!t.fileId
@@ -776,6 +890,134 @@ async function loadData() {
     }
   }
 }
+
+let guestbookLoaded = false;
+let guestbookLoading = false;
+
+function formatGuestbookTime(value){
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("ko-KR", {
+    month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false
+  }).format(d);
+}
+
+function renderGuestbook(entries){
+  const list = document.getElementById("guestbook-list");
+  list.innerHTML = "";
+  const rows = Array.isArray(entries) ? entries : [];
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "guestbook-empty";
+    empty.textContent = "아직 흔적이 없습니다. 첫 번째 망자가 되어보세요.";
+    list.appendChild(empty);
+    return;
+  }
+  rows.forEach(item => {
+    const box = document.createElement("article");
+    box.className = "guestbook-entry";
+    const head = document.createElement("div");
+    head.className = "guestbook-head";
+    const name = document.createElement("span");
+    name.className = "guestbook-name";
+    name.textContent = cleanText(item.nickname, 15) || "익명의 망자";
+    const time = document.createElement("time");
+    time.className = "guestbook-time";
+    time.textContent = formatGuestbookTime(item.createdAt);
+    const text = document.createElement("div");
+    text.className = "guestbook-text";
+    text.textContent = String(item.message || "").slice(0, 150);
+    head.append(name, time);
+    box.append(head, text);
+    list.appendChild(box);
+  });
+}
+
+async function loadGuestbook(force = false){
+  if (guestbookLoading || (guestbookLoaded && !force)) return;
+  guestbookLoading = true;
+  const msg = document.getElementById("guestbook-msg");
+  if (!guestbookLoaded) msg.textContent = "저승의 흔적을 불러오는 중…";
+  try {
+    const data = await fetchJSON(SCRIPT_URL + "?action=getGuestbook&_=" + Date.now(), 0, 15000);
+    if (!data.ok || !Array.isArray(data.entries)) throw new Error(data.error || "방명록 응답 오류");
+    renderGuestbook(data.entries);
+    guestbookLoaded = true;
+    msg.textContent = "";
+    msg.className = "";
+  } catch(err) {
+    msg.textContent = "⚠ 방명록을 불러오지 못했습니다. 잠시 후 다시 열어주세요.";
+    msg.className = "err";
+  } finally {
+    guestbookLoading = false;
+  }
+}
+
+async function postJSON(payload){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method:"POST",
+      body:JSON.stringify(payload),
+      cache:"no-store",
+      signal:controller.signal
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return JSON.parse(await res.text());
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const guestbookEl = document.getElementById("guestbook");
+const guestbookToggle = document.getElementById("guestbook-toggle");
+const guestbookPanel = document.getElementById("guestbook-panel");
+const guestbookName = document.getElementById("guestbook-name");
+const guestbookMessage = document.getElementById("guestbook-message");
+const guestbookCount = document.getElementById("guestbook-count");
+try { guestbookName.value = localStorage.getItem(GUESTBOOK_NAME_KEY) || ""; } catch (_) {}
+
+guestbookMessage.addEventListener("input", () => {
+  guestbookCount.textContent = `${guestbookMessage.value.length} / 150`;
+});
+
+guestbookToggle.addEventListener("click", async () => {
+  const opening = guestbookPanel.hidden;
+  guestbookPanel.hidden = !opening;
+  guestbookEl.classList.toggle("open", opening);
+  guestbookToggle.setAttribute("aria-expanded", opening ? "true" : "false");
+  if (opening) await loadGuestbook();
+});
+
+document.getElementById("guestbook-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const nickname = guestbookName.value.trim();
+  const message = guestbookMessage.value.trim();
+  const msg = document.getElementById("guestbook-msg");
+  const btn = document.getElementById("guestbook-submit");
+  if (!nickname) { msg.textContent = "닉네임을 입력해주세요."; msg.className = "err"; return; }
+  if (!message) { msg.textContent = "한마디를 남겨주세요."; msg.className = "err"; return; }
+  btn.disabled = true;
+  msg.textContent = "흔적을 새기는 중…";
+  msg.className = "";
+  try {
+    const data = await postJSON({ action:"addGuestbook", nickname, message, clientId:guestbookClientId });
+    if (!data.ok) throw new Error(data.error || "등록 실패");
+    try { localStorage.setItem(GUESTBOOK_NAME_KEY, nickname); } catch (_) {}
+    guestbookMessage.value = "";
+    guestbookCount.textContent = "0 / 150";
+    renderGuestbook(data.entries || []);
+    guestbookLoaded = true;
+    msg.textContent = "흔적을 남겼습니다. 👹";
+    msg.className = "ok";
+  } catch(err) {
+    msg.textContent = err?.message || "방명록 등록에 실패했습니다.";
+    msg.className = "err";
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 loadData();
 

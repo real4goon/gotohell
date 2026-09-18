@@ -62,6 +62,23 @@
   }
 
   /* main admin ui */
+
+  .admin-main-tabs{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:4px 0 18px;
+    position:sticky; top:8px; z-index:20; padding:6px;
+    background:rgba(22,13,11,.92); backdrop-filter:blur(6px); border-radius:10px;
+    border:1px solid rgba(255,122,46,.18);
+  }
+  .admin-main-tab{
+    border:1px solid var(--ember-dim); border-radius:8px; padding:10px 8px;
+    background:var(--panel); color:var(--panel-text); font-family:inherit;
+    font-size:.78rem; font-weight:900; cursor:pointer;
+  }
+  .admin-main-tab.active{ background:var(--ember); color:#1c0805; border-color:var(--ember); }
+  .admin-section-hidden{ display:none !important; }
+  .admin-loading{
+    padding:22px 12px; text-align:center; opacity:.7; font-size:.8rem;
+  }
   #admin{ display:none; }
   .tabs{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:22px; }
   .tab{
@@ -216,8 +233,13 @@
   </div>
 
   <div id="admin">
+    <div class="admin-main-tabs" aria-label="관리자 메뉴">
+      <button type="button" class="admin-main-tab active" data-admin-section="tools">🧰 도구 관리</button>
+      <button type="button" class="admin-main-tab" data-admin-section="guestbook">👹 방명록</button>
+      <button type="button" class="admin-main-tab" data-admin-section="settings">⚙️ 설정</button>
+    </div>
     <div class="tabs" id="tabs"></div>
-    <div class="card">
+    <div class="card" id="toolListCard">
       <div class="count" id="count"></div>
       <div class="list-help">↑ ↓ 버튼으로 메인 화면의 표시 순서를 바꿀 수 있습니다. HTML 업로드 항목은 파일만 따로 삭제할 수 있습니다.</div>
       <div id="list"></div>
@@ -299,7 +321,7 @@
 
     <a class="back" href="index.html">← 지도로 돌아가기</a>
 
-    <div class="card" style="margin-top:18px;">
+    <div class="card" id="pinSettingsCard" style="margin-top:18px;">
       <strong>관리자 PIN 변경</strong>
       <label>새 PIN (숫자 6자리)</label>
       <input type="text" id="pinNew" inputmode="numeric" maxlength="6" placeholder="예: 123456">
@@ -351,10 +373,16 @@ async function fetchJSON(url, options, retries = 1){
     try {
       const res = await fetch(url, options);
       const text = await res.text();
-      return JSON.parse(text);
+      if (!res.ok) throw new Error(`서버 응답 오류 (HTTP ${res.status})`);
+      const trimmed = text.trim();
+      if (trimmed.startsWith("<")) {
+        throw new Error("Apps Script가 JSON 대신 오류 페이지를 반환했습니다. 잠시 후 다시 시도해주세요.");
+      }
+      try { return JSON.parse(text); }
+      catch (_) { throw new Error("서버 응답 형식이 올바르지 않습니다."); }
     } catch(err){
       if (attempt === retries) throw err;
-      await new Promise(r => setTimeout(r, 700));
+      await new Promise(r => setTimeout(r, 650));
     }
   }
 }
@@ -372,6 +400,8 @@ let allTools = [];
 let verifiedPin = "";
 let editingToolId = null;
 let guestbookEntries = [];
+let guestbookLoaded = false;
+let currentAdminSection = "tools";
 
 function escapeHTML(value) {
   return String(value ?? "").replace(/[&<>"']/g, ch => ({
@@ -444,19 +474,19 @@ async function checkPin(){
     const data = await fetchJSON(SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({ action: "verifyPin", pin, clientId })
-    }, 1);
+    }, 0);
     if (data.ok) {
       verifiedPin = pin;
-      allTools = data.tools || [];
-      siteOrnament = data.ornament || { mode:"none", url:"", actionUrl:"", hasFile:false, fileName:"" };
-      guestbookEntries = Array.isArray(data.guestbook) ? data.guestbook : [];
+      guestbookEntries = [];
+      guestbookLoaded = false;
       document.getElementById("gateError").textContent = "";
       document.getElementById("gate").style.display = "none";
       document.getElementById("admin").style.display = "block";
       buildTabs();
-      renderList();
-      renderOrnamentForm();
-      renderGuestbookAdmin();
+      switchAdminSection("tools");
+      document.getElementById("count").textContent = "도구 목록 불러오는 중...";
+      document.getElementById("list").innerHTML = '<div class="admin-loading">🔥 도구 목록을 불러오는 중...</div>';
+      loadTools();
     } else {
       document.getElementById("gateError").textContent = data.error || "PIN이 올바르지 않습니다.";
       pin = "";
@@ -469,6 +499,36 @@ async function checkPin(){
   }
   checking = false;
 }
+
+function switchAdminSection(section){
+  const valid = ["tools","guestbook","settings"].includes(section) ? section : "tools";
+  currentAdminSection = valid;
+
+  document.querySelectorAll(".admin-main-tab").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.adminSection === valid);
+  });
+
+  const toolEls = ["tabs","toolListCard","toolFormCard"];
+  const guestEls = ["guestbookAdminCard"];
+  const settingEls = ["ornamentCard","pinSettingsCard"];
+  const toggle = (ids, show) => ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("admin-section-hidden", !show);
+  });
+  toggle(toolEls, valid === "tools");
+  toggle(guestEls, valid === "guestbook");
+  toggle(settingEls, valid === "settings");
+
+  if (valid === "guestbook" && !guestbookLoaded) {
+    const list = document.getElementById("guestbookAdminList");
+    if (list) list.innerHTML = '<div class="admin-loading">👹 방명록을 불러오는 중...</div>';
+    refreshGuestbookAdmin(true);
+  }
+}
+
+document.querySelectorAll(".admin-main-tab").forEach(btn => {
+  btn.addEventListener("click", () => switchAdminSection(btn.dataset.adminSection));
+});
 
 function buildTabs(){
   const tabs = document.getElementById("tabs");
@@ -485,14 +545,16 @@ function buildTabs(){
 async function loadTools(){
   try {
     const data = await fetchJSON(SCRIPT_URL + "?action=getData&_=" + Date.now(), undefined, 1);
-    allTools = (data.ok && Array.isArray(data.tools)) ? data.tools : [];
-    if (data.ok && data.ornament) siteOrnament = data.ornament;
-    if (allTools.length) saveMainCache(allTools, siteOrnament);
+    if (!data.ok || !Array.isArray(data.tools)) throw new Error(data.error || "도구 목록 조회 실패");
+    allTools = data.tools;
+    if (data.ornament) siteOrnament = data.ornament;
+    saveMainCache(allTools, siteOrnament);
     renderOrnamentForm();
+    renderList();
   } catch(err){
-    // 네트워크 오류가 나도 현재 관리자 화면의 목록은 지우지 않는다.
+    document.getElementById("count").textContent = "목록 조회 실패";
+    document.getElementById("list").innerHTML = `<div class="guest-admin-empty">${escapeHTML(err?.message || "도구 목록을 불러오지 못했습니다.")}</div>`;
   }
-  renderList();
 }
 
 function renderList(){
@@ -847,6 +909,7 @@ async function saveGuestbookReply(id, replyValue, button){
     }, 1);
     if (!data.ok) throw new Error(data.error || "답글 저장 실패");
     guestbookEntries = Array.isArray(data.guestbook) ? data.guestbook : [];
+    guestbookLoaded = true;
     renderGuestbookAdmin();
   } catch(err) {
     alert(err?.message || "답글 저장 중 오류가 발생했습니다.");
@@ -864,29 +927,33 @@ async function deleteGuestbookReply(id){
     }, 1);
     if (!data.ok) throw new Error(data.error || "답글 삭제 실패");
     guestbookEntries = Array.isArray(data.guestbook) ? data.guestbook : [];
+    guestbookLoaded = true;
     renderGuestbookAdmin();
   } catch(err) {
     alert(err?.message || "답글 삭제 중 오류가 발생했습니다.");
   }
 }
 
-async function refreshGuestbookAdmin(){
+async function refreshGuestbookAdmin(silent = false){
   const btn = document.getElementById("guestbookRefreshBtn");
-  btn.disabled = true;
+  if (btn) btn.disabled = true;
   try {
     const data = await fetchJSON(SCRIPT_URL, {
       method:"POST",
       body:JSON.stringify({ action:"getGuestbookAdmin", pin:verifiedPin, clientId })
-    }, 1);
+    }, 0);
     if (!data.ok) throw new Error(data.error || "방명록 조회 실패");
     guestbookEntries = Array.isArray(data.guestbook) ? data.guestbook : [];
+    guestbookLoaded = true;
     renderGuestbookAdmin();
   } catch(err) {
-    alert(err?.message || "방명록 조회 중 오류가 발생했습니다.");
-  } finally { btn.disabled = false; }
+    const list = document.getElementById("guestbookAdminList");
+    if (list) list.innerHTML = `<div class="guest-admin-empty">${escapeHTML(err?.message || "방명록 조회 중 오류가 발생했습니다.")}</div>`;
+    if (!silent) alert(err?.message || "방명록 조회 중 오류가 발생했습니다.");
+  } finally { if (btn) btn.disabled = false; }
 }
 
-document.getElementById("guestbookRefreshBtn").addEventListener("click", refreshGuestbookAdmin);
+document.getElementById("guestbookRefreshBtn").addEventListener("click", () => refreshGuestbookAdmin(false));
 
 async function deleteGuestbookEntry(id, nickname){
   if (!confirm(`"${nickname || "익명"}"의 방명록을 삭제할까요?`)) return;
@@ -897,6 +964,7 @@ async function deleteGuestbookEntry(id, nickname){
     }, 1);
     if (!data.ok) throw new Error(data.error || "삭제 실패");
     guestbookEntries = Array.isArray(data.guestbook) ? data.guestbook : [];
+    guestbookLoaded = true;
     renderGuestbookAdmin();
   } catch(err) {
     alert(err?.message || "방명록 삭제 중 오류가 발생했습니다.");
